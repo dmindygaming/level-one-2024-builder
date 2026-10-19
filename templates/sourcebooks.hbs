@@ -1,0 +1,57 @@
+<form class="l12024b l12024b-sources {{themeClass}}" style="{{themeInlineStyle}}">
+  <section class="l12024b-panel">
+    <h2>{{#if singleSourceType}}{{sourceTitle}} Sources{{else}}Character Creation Sources{{/if}}</h2>
+    <p class="hint">
+      {{#if singleSourceType}}
+        Choose one or more installed dnd5e Item compendiums for this content type. Use the search box to quickly find a compendium by name, ID, package, system, or note.
+      {{else}}
+        Choose which installed dnd5e Item compendiums the 2024 builder should use for each content type. Each category can use automatic detection or one or more manually selected packs.
+      {{/if}}
+    </p>
+
+    {{#each sourceTypes}}
+      <section class="l12024b-source-section" data-section="{{key}}">
+        <h3>{{label}}</h3>
+        <label class="l12024b-source-auto">
+          <input type="checkbox" name="auto-{{key}}" {{#if autoMode}}checked{{/if}}>
+          <span><strong>Automatic detection for {{label}}</strong><br><small>{{selectedCount}} compendium(s) currently selected for this category.</small></span>
+        </label>
+
+        <div class="l12024b-source-search-row">
+          <label for="l12024b-source-search-{{key}}"><i class="fas fa-search"></i> Search {{label}} Compendiums</label>
+          <div class="l12024b-source-search-controls">
+            <input id="l12024b-source-search-{{key}}" type="search" data-source-search="{{key}}" placeholder="Type a compendium name, package, ID, source note, or system..." autocomplete="off">
+            <button type="button" data-section="{{key}}" data-action="clear-search">Clear</button>
+          </div>
+        </div>
+
+        <div class="l12024b-source-actions">
+          <button type="button" data-section="{{key}}" data-action="select-recommended"><i class="fas fa-wand-magic-sparkles"></i> Select Recommended</button>
+          <button type="button" data-section="{{key}}" data-action="select-all">Select All</button>
+          <button type="button" data-section="{{key}}" data-action="select-none">Select None</button>
+        </div>
+
+        {{#if packs.length}}
+          <div class="l12024b-pack-list">
+            {{#each packs}}
+              <label class="l12024b-pack-row {{#if recommended}}recommended{{/if}}" data-section="{{../key}}" data-search="{{searchText}}">
+                <input type="checkbox" data-pack data-section="{{../key}}" name="packsel-{{../key}}-{{@index}}" value="{{id}}" {{#if checked}}checked{{/if}}>
+                <span class="l12024b-pack-main">
+                  <strong>{{label}}</strong>
+                  <small>{{id}}</small>
+                </span>
+                <span class="l12024b-pack-note">{{note}}</span>
+              </label>
+            {{/each}}
+          </div>
+        {{else}}
+          <p class="warning">No dnd5e Item compendiums were detected. Make sure the dnd5e system and any official sourcebook modules are installed and enabled for this world.</p>
+        {{/if}}
+      </section>
+    {{/each}}
+  </section>
+
+  <footer class="l12024b-footer">
+    <button type="submit"><i class="fas fa-save"></i> Save Sources</button>
+  </footer>
+</form>

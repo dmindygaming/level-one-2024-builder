@@ -1,0 +1,49 @@
+<form class="l12024b l12024b-overrides {{themeClass}}" style="{{themeInlineStyle}}">
+  <section class="l12024b-panel">
+    <h2>Feature Overrides</h2>
+    <p class="hint">
+      Pin the exact compendium item the builder should use for a specific class or species level-1 feature.
+      Overrides always win over automatic detection. Leave a row on "Auto" to let the builder pick the best
+      match from your configured {{sourceTypeLabel}} sources.
+    </p>
+
+    <div class="l12024b-source-actions">
+      <label class="l12024b-field">
+        <span>Type</span>
+        <select name="contextType">
+          {{#each types}}
+            <option value="{{key}}" {{#if selected}}selected{{/if}}>{{label}}</option>
+          {{/each}}
+        </select>
+      </label>
+      <label class="l12024b-field">
+        <span>Class / Species</span>
+        <select name="contextKeySelect">
+          {{#each keys}}
+            <option value="{{key}}" {{#if selected}}selected{{/if}}>{{label}}</option>
+          {{/each}}
+        </select>
+      </label>
+    </div>
+
+    <div class="l12024b-pack-list">
+      {{#each rows}}
+        <label class="l12024b-pack-row">
+          <span class="l12024b-pack-main">
+            <strong>{{name}}</strong>
+            {{#if noCandidates}}<small class="warning">No candidates found in the configured sources for this category.</small>{{/if}}
+          </span>
+          <select name="{{fieldName}}">
+            {{#each options}}
+              <option value="{{uuid}}" {{#if selected}}selected{{/if}}>{{label}}</option>
+            {{/each}}
+          </select>
+        </label>
+      {{/each}}
+    </div>
+  </section>
+
+  <footer class="l12024b-footer">
+    <button type="submit"><i class="fas fa-save"></i> Save Overrides</button>
+  </footer>
+</form>

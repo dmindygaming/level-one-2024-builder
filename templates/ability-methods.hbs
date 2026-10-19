@@ -1,0 +1,109 @@
+<form class="l12024b l12024b-settings {{themeClass}}" style="{{themeInlineStyle}}">
+  <section class="l12024b-panel">
+    <h2>Built-in Methods</h2>
+    <p class="hint">Unchecked methods are hidden from the character builder.</p>
+    <div class="l12024b-checkbox-grid">
+      {{#each builtins}}
+        <label>
+          <input type="checkbox" name="builtin.{{id}}" {{#if checked}}checked{{/if}}>
+          <strong>{{label}}</strong> <small>({{type}})</small>
+        </label>
+      {{/each}}
+    </div>
+  </section>
+
+  <section class="l12024b-panel">
+    <h2>Simple Custom Method Builder</h2>
+    <p class="hint">Use this section if you do not want to write JSON. Fill out the fields for one method, then click <strong>Add Method</strong>. The module will build the JSON for you.</p>
+
+    <div class="l12024b-form-grid">
+      <label>
+        <span>Method Name</span>
+        <input type="text" name="simpleLabel" placeholder="Heroic Array">
+      </label>
+      <label>
+        <span>Method Type</span>
+        <select name="simpleType" data-action="simpleTypeChanged">
+          <option value="array">Fixed Array</option>
+          <option value="roll">Roll Formula</option>
+          <option value="pointbuy">Point Buy</option>
+        </select>
+      </label>
+    </div>
+
+    <div class="l12024b-simple-method-section" data-simple-section="array">
+      <label>
+        <span>Six Scores</span>
+        <input type="text" name="simpleScores" placeholder="16, 15, 14, 13, 12, 10">
+      </label>
+      <p class="hint">Enter exactly six numbers separated by commas.</p>
+    </div>
+
+    <div class="l12024b-simple-method-section" data-simple-section="roll" hidden>
+      <label>
+        <span>Dice Formula</span>
+        <input type="text" name="simpleFormula" placeholder="4d6dl1">
+      </label>
+      <p class="hint">Uses Foundry dice syntax. Examples: <code>3d6</code>, <code>4d6dl1</code>, <code>5d6dl2</code>, <code>2d6+6</code>. The formula is rolled six times.</p>
+    </div>
+
+    <div class="l12024b-simple-method-section" data-simple-section="pointbuy" hidden>
+      <div class="l12024b-form-grid l12024b-form-grid-3">
+        <label>
+          <span>Points</span>
+          <input type="number" name="simplePoints" value="27" min="1" step="1">
+        </label>
+        <label>
+          <span>Minimum Score</span>
+          <input type="number" name="simpleMin" value="8" min="1" step="1">
+        </label>
+        <label>
+          <span>Maximum Score</span>
+          <input type="number" name="simpleMax" value="15" min="1" step="1">
+        </label>
+      </div>
+      <label>
+        <span>Score Costs</span>
+        <input type="text" name="simpleCosts" value="8:0, 9:1, 10:2, 11:3, 12:4, 13:5, 14:7, 15:9">
+      </label>
+      <p class="hint">Format is <code>score:cost</code>, separated by commas. Add extra entries if the max is above 15.</p>
+    </div>
+
+    <div class="l12024b-source-actions">
+      <button type="button" data-action="addSimpleMethod"><i class="fas fa-plus"></i> Add Method</button>
+      <button type="button" data-action="clearSimpleMethod"><i class="fas fa-eraser"></i> Clear Fields</button>
+    </div>
+  </section>
+
+  <section class="l12024b-panel">
+    <h2>Custom Methods to Show Players</h2>
+    <p class="hint">Custom methods appear here after they are added and saved. Uncheck a custom method to keep it stored but hide it from the character builder.</p>
+    {{#if customMethods.length}}
+      <div class="l12024b-checkbox-grid">
+        {{#each customMethods}}
+          <label>
+            <input type="checkbox" name="custom.{{id}}" {{#if checked}}checked{{/if}}>
+            <strong>{{label}}</strong> <small>({{type}})</small>
+          </label>
+        {{/each}}
+      </div>
+    {{else}}
+      <p class="hint"><em>No custom methods have been saved yet.</em></p>
+    {{/if}}
+  </section>
+
+  <section class="l12024b-panel">
+    <h2>Custom Methods</h2>
+    <p class="hint">Advanced users can edit the generated JSON directly. Supported types are <code>array</code>, <code>roll</code>, and <code>pointbuy</code>.</p>
+    <textarea name="customAbilityMethods" rows="14" spellcheck="false">{{customRaw}}</textarea>
+    <div class="l12024b-source-actions">
+      <button type="button" data-action="pasteExampleMethods"><i class="fas fa-paste"></i> Paste Example Custom Methods</button>
+      <button type="button" data-action="formatCustomMethods"><i class="fas fa-align-left"></i> Format JSON</button>
+    </div>
+    <p class="hint">Array methods require exactly six scores. Roll methods roll the formula six times and whisper results to the GM. Point-buy methods can define points, min, max, and costs.</p>
+  </section>
+
+  <footer class="sheet-footer flexrow">
+    <button type="submit"><i class="fas fa-save"></i> Save Methods</button>
+  </footer>
+</form>

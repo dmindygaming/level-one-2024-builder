@@ -1,0 +1,849 @@
+<form class="l12024b {{themeClass}}" data-l12024b-theme="{{guiTheme}}" style="{{themeInlineStyle}}">
+  <nav class="l12024b-steps">
+    {{#each steps as |label idx|}}
+      <button type="button" data-step="{{idx}}" class="{{#if (eq ../step idx)}}active{{/if}}">{{label}}</button>
+    {{/each}}
+  </nav>
+
+
+  {{#if (eq currentStep "Actor")}}
+    <section class="l12024b-panel">
+      <h2>Actor</h2>
+      <p class="hint">Choose whether this builder should update an existing character actor or create a new one.</p>
+
+      <div class="l12024b-methods">
+        <label>
+          <input type="radio" name="actorMode" value="existing" {{#if (eq build.actorMode "existing")}}checked{{/if}}>
+          Use an existing actor
+        </label>
+        <label>
+          <input type="radio" name="actorMode" value="new" {{#if (eq build.actorMode "new")}}checked{{/if}}>
+          Create a new actor
+        </label>
+      </div>
+
+      {{#if (eq build.actorMode "existing")}}
+        <label class="l12024b-field">
+          <span>Character Actor</span>
+          <select name="selectedActorId">
+            <option value="">Choose an actor...</option>
+            {{#each ownedActors}}
+              <option value="{{id}}" {{#if selected}}selected{{/if}}>{{name}}</option>
+            {{/each}}
+          </select>
+        </label>
+        <p class="hint">Players only see character actors they own. GMs see all character actors.</p>
+      {{/if}}
+
+      {{#if (eq build.actorMode "new")}}
+        {{#if canCreate}}
+          <p class="hint">The builder will create a new dnd5e character actor in folder: <strong>{{configuredFolderName}}</strong>.</p>
+        {{else}}
+          <p class="warning">This world does not allow players to create actors from the builder. Ask a GM to create a blank character actor, assign ownership, then choose it here.</p>
+        {{/if}}
+      {{/if}}
+    </section>
+  {{/if}}
+
+  {{#if (eq currentStep "Name")}}
+    <section class="l12024b-panel">
+      <h2>Character Name</h2>
+      {{#if targetActorName}}
+        <p class="hint">This will update the existing actor: <strong>{{targetActorName}}</strong>.</p>
+      {{else}}
+        <p class="hint">This will create a new dnd5e character actor.</p>
+      {{/if}}
+      <label class="l12024b-field">
+        <span>Character Name</span>
+        <input type="text" name="name" value="{{build.name}}" placeholder="New Character" />
+      </label>
+    </section>
+  {{/if}}
+
+  {{#if (eq currentStep "Ability Scores Generation")}}
+    <section class="l12024b-panel">
+      <h2>Ability Scores Generation</h2>
+      <div class="l12024b-methods">
+        {{#each abilityMethods}}
+          <label><input type="radio" name="abilityMethod" value="{{id}}" {{#if (eq ../build.abilityMethod id)}}checked{{/if}}> {{label}}</label>
+        {{/each}}
+      </div>
+
+      {{#if (eq selectedAbilityMethod.type "roll")}}
+        <button type="button" class="l12024b-primary-action" data-action="rollScores" data-method="{{selectedAbilityMethod.id}}"><i class="fas fa-dice-d6"></i> Roll {{selectedAbilityMethod.label}}</button>
+      {{/if}}
+      {{#if build.rerollRequestPending}}
+        <p class="hint"><strong>Reroll request pending.</strong> The current scores stay locked until a GM approves the reroll.</p>
+      {{/if}}
+
+      {{#if (eq selectedAbilityMethod.type "pointbuy")}}
+        <p><strong>{{selectedAbilityMethod.label}}:</strong> {{pointBuyTotal}} / {{pointBuyRules.points}} spent. Remaining: {{pointBuyRemaining}}</p>
+        <div class="l12024b-grid abilities">
+          {{#each abilities}}
+            <label>
+              <span>{{label}}</span>
+              <input type="number" min="{{../pointBuyRules.min}}" max="{{../pointBuyRules.max}}" data-pointbuy="{{key}}" value="{{base}}" />
+            </label>
+          {{/each}}
+        </div>
+      {{else}}
+        {{#if (eq selectedAbilityMethod.type "manual")}}
+          <p class="hint">Enter each base ability score directly. Background ASIs are still selected in the next background step and are added on top of these scores.</p>
+          <div class="l12024b-grid abilities">
+            {{#each abilities}}
+              <label>
+                <span>{{label}}</span>
+                <input type="number" min="{{../selectedAbilityMethod.min}}" max="{{../selectedAbilityMethod.max}}" step="1" data-manual-ability="{{key}}" value="{{base}}" />
+              </label>
+            {{/each}}
+          </div>
+        {{else}}
+          <p class="hint">Assign the generated scores yourself. Scores start unassigned; each score can only be used as many times as it appears in the pool. To move a used score, clear it from its current ability first. Background ASIs are selected in the next background step.</p>
+          <div class="l12024b-grid abilities">
+            {{#each abilities}}
+              <label>
+                <span>{{label}}</span>
+                <select data-ability="{{key}}">
+                  {{#each scoreOptions}}
+                    <option value="{{value}}" {{#if selected}}selected{{/if}} {{#if disabled}}disabled{{/if}}>
+                      {{#if label}}{{label}}{{else}}{{value}}{{/if}}{{#unless selected}}{{#if remaining}} — {{remaining}} available{{/if}}{{/unless}}
+                    </option>
+                  {{/each}}
+                </select>
+              </label>
+            {{/each}}
+          </div>
+        {{/if}}
+      {{/if}}
+    </section>
+  {{/if}}
+
+  {{#if (eq currentStep "Species")}}
+    <section class="l12024b-panel">
+      <h2>Species</h2>
+      <p class="hint">Choose the main species entry. Lineage, ancestry, and subspecies entries are intentionally hidden because they are selected from within the species item.</p>
+      <div class="l12024b-selection-heading" style="display:grid !important;grid-template-columns:max-content minmax(0,1fr) !important;width:100% !important;max-width:100% !important;overflow:hidden !important;background:var(--l12024b-panel-bg) !important;border-color:var(--l12024b-border) !important;box-sizing:border-box !important;">
+        <p>Selected Species: <strong>{{selectedSpeciesName}}</strong></p>
+        <button type="button" style="inline-size:auto !important;width:auto !important;min-width:0 !important;max-width:100% !important;margin:0 !important;justify-self:stretch !important;box-sizing:border-box !important;" data-action="browserPick" data-kind="species"><i class="fas fa-books"></i> Browse All Sources</button>
+      </div>
+      <label class="l12024b-search-row" style="display:grid !important;grid-template-columns:max-content minmax(0,1fr) !important;width:100% !important;max-width:100% !important;background:var(--l12024b-panel-bg) !important;color:var(--l12024b-text) !important;border-color:var(--l12024b-border) !important;box-sizing:border-box !important;">
+        <span>Search Species</span>
+        <input type="search" data-search="species" value="{{searchTerms.species}}" placeholder="Type a species name or source...">
+      </label>
+      <div class="l12024b-art-grid" style="max-height:420px !important;">
+        {{#each mainSpeciesOptions}}
+          <article class="l12024b-art-card {{#if selected}}selected{{/if}}">
+            <button type="button" class="l12024b-art-pick" data-action="confirmSelectItem" data-kind="species" data-uuid="{{uuid}}" aria-label="Choose {{name}}">
+              <img src="{{img}}" alt="{{name}}">
+              <span class="l12024b-art-shade"></span>
+              <span class="l12024b-art-copy"><strong>{{name}}</strong><small>{{sourceLabel}}</small></span>
+              {{#if selected}}<span class="l12024b-selected-badge"><i class="fas fa-check"></i> Selected</span>{{/if}}
+            </button>
+            <button type="button" class="l12024b-art-info" data-action="openItem" data-uuid="{{uuid}}"><i class="fas fa-circle-info"></i> Details</button>
+          </article>
+        {{/each}}
+      </div>
+    </section>
+  {{/if}}
+
+  {{#if (eq currentStep "Species Options")}}
+    <section class="l12024b-panel">
+      <h2>{{speciesChoiceData.title}}</h2>
+      <p class="hint">{{speciesChoiceData.hint}}</p>
+      <p>{{speciesChoiceData.selectedLabelValue}}: <strong>{{speciesChoiceData.selectedLabel}}</strong></p>
+      <div class="l12024b-choice-list">
+        {{#each speciesChoiceData.options}}
+          <label class="l12024b-choice-card {{#if checked}}selected{{/if}}">
+            <div>
+              <h3>{{label}}</h3>
+              <p class="hint">{{description}}</p>
+            </div>
+            <div class="l12024b-choice-actions">
+              <input type="radio" name="speciesChoice" value="{{key}}" {{checked checked}}>
+              <span>Choose</span>
+            </div>
+          </label>
+        {{/each}}
+      </div>
+    </section>
+  {{/if}}
+
+  {{#if (eq currentStep "Background")}}
+    <section class="l12024b-panel">
+      <h2>Background</h2>
+      <p class="hint">Choose from the background gallery below. The builder will ask for that background's ability score increases next.</p>
+      <div class="l12024b-selection-heading" style="display:grid !important;grid-template-columns:max-content minmax(0,1fr) !important;width:100% !important;max-width:100% !important;overflow:hidden !important;background:var(--l12024b-panel-bg) !important;border-color:var(--l12024b-border) !important;box-sizing:border-box !important;">
+        <p>Selected Background: <strong>{{selectedBackgroundName}}</strong></p>
+        <button type="button" style="inline-size:auto !important;width:auto !important;min-width:0 !important;max-width:100% !important;margin:0 !important;justify-self:stretch !important;box-sizing:border-box !important;" data-action="browserPick" data-kind="background"><i class="fas fa-books"></i> Browse All Sources</button>
+      </div>
+      <label class="l12024b-search-row" style="display:grid !important;grid-template-columns:max-content minmax(0,1fr) !important;width:100% !important;background:var(--l12024b-panel-bg) !important;color:var(--l12024b-text) !important;border-color:var(--l12024b-border) !important;box-sizing:border-box !important;">
+        <span>Search Backgrounds</span>
+        <input type="search" data-search="backgrounds" value="{{searchTerms.backgrounds}}" placeholder="Type a background name or source...">
+      </label>
+      <div class="l12024b-art-grid" style="max-height:420px !important;">
+        {{#each mainBackgroundOptions}}
+          <article class="l12024b-art-card {{#if selected}}selected{{/if}}">
+            <button type="button" class="l12024b-art-pick" data-action="confirmSelectItem" data-kind="background" data-uuid="{{uuid}}" aria-label="Choose {{name}}">
+              <img src="{{img}}" alt="{{name}}">
+              <span class="l12024b-art-shade"></span>
+              <span class="l12024b-art-copy"><strong>{{name}}</strong><small>{{sourceLabel}}</small></span>
+              {{#if selected}}<span class="l12024b-selected-badge"><i class="fas fa-check"></i> Selected</span>{{/if}}
+            </button>
+            <button type="button" class="l12024b-art-info" data-action="openItem" data-uuid="{{uuid}}"><i class="fas fa-circle-info"></i> Details</button>
+          </article>
+        {{/each}}
+      </div>
+      <h3>Base Scores</h3>
+      <div class="l12024b-scoreline">
+        {{#each abilities}}
+          <span>{{label}} {{base}}</span>
+        {{/each}}
+      </div>
+    </section>
+  {{/if}}
+
+  {{#if (eq currentStep "Background Ability Scores")}}
+    <section class="l12024b-panel">
+      <h2>Background Ability Scores</h2>
+      <p class="hint">Your selected background allows increases to these ability scores. Choose either +2/+1 or +1/+1/+1.</p>
+      <p>Background: <strong>{{selectedBackgroundName}}</strong></p>
+      <div class="l12024b-scoreline">
+        {{#each backgroundAbilityData.allowed}}
+          <span>{{label}}</span>
+        {{/each}}
+      </div>
+
+      <div class="l12024b-methods">
+        <label>
+          <input type="radio" name="backgroundAsiMode" value="2-1" {{#if (eq backgroundAbilityData.mode "2-1")}}checked{{/if}}>
+          +2 to one ability and +1 to another
+        </label>
+        <label>
+          <input type="radio" name="backgroundAsiMode" value="1-1-1" {{#if (eq backgroundAbilityData.mode "1-1-1")}}checked{{/if}}>
+          +1 to three abilities
+        </label>
+      </div>
+
+      {{#if (eq backgroundAbilityData.mode "1-1-1")}}
+        <div class="l12024b-choice-grid compact">
+          {{#each backgroundAbilityData.options}}
+            <label class="l12024b-check">
+              <input type="checkbox" data-background-asi-plus1="{{key}}" {{checked checked}}>
+              <span>{{label}} +1</span>
+            </label>
+          {{/each}}
+        </div>
+      {{else}}
+        <div class="l12024b-grid two">
+          <label class="l12024b-field">
+            <span>+2 Ability</span>
+            <select name="backgroundAsiPlus2">
+              <option value="">Choose...</option>
+              {{#each backgroundAbilityData.optionsPlus2}}
+                <option value="{{key}}" {{#if plus2Selected}}selected{{/if}}>{{label}}</option>
+              {{/each}}
+            </select>
+          </label>
+          <label class="l12024b-field">
+            <span>+1 Ability</span>
+            <select name="backgroundAsiPlus1">
+              <option value="">Choose...</option>
+              {{#each backgroundAbilityData.optionsPlus1}}
+                <option value="{{key}}" {{#if plus1Selected}}selected{{/if}}>{{label}}</option>
+              {{/each}}
+            </select>
+          </label>
+        </div>
+      {{/if}}
+
+      <h3>Final Scores</h3>
+      <div class="l12024b-scoreline">
+        {{#each abilities}}
+          <span>{{label}} {{final}}</span>
+        {{/each}}
+      </div>
+    </section>
+  {{/if}}
+
+  {{#if (eq currentStep "Human Choices")}}
+    <section class="l12024b-panel">
+      <h2>Human Choices</h2>
+      <p class="hint">Human characters choose one skill proficiency and one origin feat.</p>
+
+      <h3>Human Skill Proficiency</h3>
+      <div class="l12024b-choice-grid compact">
+        {{#each humanSkillData.options}}
+          <label class="l12024b-check">
+            <input type="radio" name="humanSkillChoice" value="{{key}}" {{checked checked}}>
+            <span>{{label}}</span>
+          </label>
+        {{/each}}
+      </div>
+
+      <h3>Human Origin Feat</h3>
+      <p>Selected Origin Feats: <strong>{{build.originFeatUuids.length}} / {{originFeatData.requiredExtra}}</strong></p>
+      {{#if originFeatData.selected.length}}
+        <ul class="l12024b-selected-list">
+          {{#each originFeatData.selected}}
+            <li><strong>{{name}}</strong> <span class="hint">{{sourceLabel}}</span></li>
+          {{/each}}
+        </ul>
+      {{/if}}
+      <div class="l12024b-spell-list">
+        {{#each originFeatData.options}}
+          <div class="l12024b-spell-row {{#if checked}}selected{{/if}}">
+            <div class="l12024b-spell-main">
+              <strong class="l12024b-spell-name">{{name}}</strong>
+              <span class="l12024b-spell-source">{{sourceLabel}}</span>
+            </div>
+            <div class="l12024b-inline-actions">
+              <button type="button" data-action="openItem" data-uuid="{{uuid}}"><i class="fas fa-book-open"></i> Description</button>
+              {{#if checked}}
+                <button type="button" data-action="removeOriginFeat" data-uuid="{{uuid}}"><i class="fas fa-minus-circle"></i> Remove</button>
+              {{else}}
+                <button type="button" data-action="chooseOriginFeat" data-uuid="{{uuid}}"><i class="fas fa-check"></i> Choose</button>
+              {{/if}}
+            </div>
+          </div>
+        {{/each}}
+      </div>
+    </section>
+  {{/if}}
+
+
+  {{#if (eq currentStep "Class")}}
+    <section class="l12024b-panel">
+      <h2>Class</h2>
+      <p class="hint">Choose from the clean class gallery. The builder favors the official 2024 entry when several sources provide the same class.</p>
+      <div class="l12024b-selection-heading" style="display:grid !important;grid-template-columns:max-content minmax(0,1fr) !important;width:100% !important;max-width:100% !important;overflow:hidden !important;background:var(--l12024b-panel-bg) !important;border-color:var(--l12024b-border) !important;box-sizing:border-box !important;">
+        <p>Selected Class: <strong>{{selectedClassName}}</strong></p>
+        <button type="button" style="inline-size:auto !important;width:auto !important;min-width:0 !important;max-width:100% !important;margin:0 !important;justify-self:stretch !important;box-sizing:border-box !important;" data-action="browserPick" data-kind="class"><i class="fas fa-books"></i> Browse All Sources</button>
+      </div>
+      <label class="l12024b-search-row" style="display:grid !important;grid-template-columns:max-content minmax(0,1fr) !important;width:100% !important;max-width:100% !important;background:var(--l12024b-panel-bg) !important;color:var(--l12024b-text) !important;border-color:var(--l12024b-border) !important;box-sizing:border-box !important;">
+        <span>Search Classes</span>
+        <input type="search" data-search="classes" value="{{searchTerms.classes}}" placeholder="Type a class name...">
+      </label>
+      <div class="l12024b-art-grid" style="max-height:420px !important;">
+        {{#each mainClassOptions}}
+          <article class="l12024b-art-card {{#if selected}}selected{{/if}}">
+            <button type="button" class="l12024b-art-pick" data-action="confirmSelectItem" data-kind="class" data-uuid="{{uuid}}" aria-label="Choose {{name}}">
+              <img src="{{img}}" alt="{{name}}">
+              <span class="l12024b-art-shade"></span>
+              <span class="l12024b-art-copy"><strong>{{name}}</strong><small>{{sourceLabel}}</small></span>
+              {{#if selected}}<span class="l12024b-selected-badge"><i class="fas fa-check"></i> Selected</span>{{/if}}
+            </button>
+            <button type="button" class="l12024b-art-info" data-action="openItem" data-uuid="{{uuid}}"><i class="fas fa-circle-info"></i> Details</button>
+          </article>
+        {{/each}}
+      </div>
+    </section>
+  {{/if}}
+
+  {{#if (eq currentStep "Class Choices")}}
+    <section class="l12024b-panel">
+      <h2>Class Choices</h2>
+      {{#if classPrompt}}
+        <h3>Class Skills</h3>
+        <p>Choose exactly <strong>{{classPrompt.skills.count}}</strong> class skills. Skills already granted by your selected background are hidden here.</p>
+        <div class="l12024b-checkbox-grid">
+          {{#each classSkillOptions}}
+            <label><input type="checkbox" data-skill value="{{key}}" {{#if (includes ../build.skillChoices key)}}checked{{/if}}> {{label}}</label>
+          {{/each}}
+        </div>
+
+        {{#if weaponMasteryPrompt}}
+          <h3>Weapon Masteries</h3>
+          <p class="hint">Choose exactly <strong>{{weaponMasteryPrompt.count}}</strong> weapon{{#unless (eq weaponMasteryPrompt.count 1)}}s{{/unless}} for Weapon Mastery. Pick the weapon itself, such as Greataxe, and Foundry will use that weapon's mastery property, such as Cleave.</p>
+          <div class="l12024b-browser-pick">
+            <button type="button" class="l12024b-primary-action" data-action="browserPickMasteries"><i class="fas fa-book-open"></i> Open Weapon Browser</button>
+            <p>Selected Weapon Masteries: <strong>{{build.weaponMasteryUuids.length}} / {{weaponMasteryPrompt.count}}</strong></p>
+            {{#if selectedWeaponMasteries.length}}
+              <ul class="l12024b-selected-list">
+                {{#each selectedWeaponMasteries}}
+                  <li><strong>{{name}}</strong>{{#if mastery}} — {{masteryLabel}}{{/if}}</li>
+                {{/each}}
+              </ul>
+            {{/if}}
+          </div>
+        {{/if}}
+
+
+        {{#if fightingStyleData.required}}
+          <h3>Fighting Style</h3>
+          <p class="hint">Choose one Fighting Style. The selected style will be added as a class feature on the actor.</p>
+          <div class="l12024b-order-options">
+            {{#each fightingStyleData.options}}
+              <label class="l12024b-order-card {{#if checked}}selected{{/if}}">
+                <input type="radio" name="fightingStyle" value="{{key}}" {{checked checked}}>
+                <span class="l12024b-order-card-body"><strong>{{label}}</strong><span class="hint">{{description}}</span></span>
+              </label>
+            {{/each}}
+          </div>
+        {{/if}}
+
+
+        {{#if divineOrderData.required}}
+          <h3>Divine Order</h3>
+          <p class="hint">Choose one Cleric Divine Order. The selected order will be added as a class feature on the actor.</p>
+          <div class="l12024b-order-options">
+            {{#each divineOrderData.options}}
+              <label class="l12024b-order-card {{#if checked}}selected{{/if}}">
+                <input type="radio" name="divineOrder" value="{{key}}" {{checked checked}}>
+                <span class="l12024b-order-card-body"><strong>{{label}}</strong><span class="hint">{{description}}</span></span>
+              </label>
+            {{/each}}
+          </div>
+        {{/if}}
+
+
+        {{#if primalOrderData.required}}
+          <h3>Primal Order</h3>
+          <p class="hint">Choose one Druid Primal Order. The selected order will be added as a class feature on the actor.</p>
+          <div class="l12024b-order-options">
+            {{#each primalOrderData.options}}
+              <label class="l12024b-order-card {{#if checked}}selected{{/if}}">
+                <input type="radio" name="primalOrder" value="{{key}}" {{checked checked}}>
+                <span class="l12024b-order-card-body"><strong>{{label}}</strong><span class="hint">{{description}}</span></span>
+              </label>
+            {{/each}}
+          </div>
+        {{/if}}
+
+
+        {{#if invocationData.required}}
+          <details class="l12024b-collapsible" open>
+            <summary>Eldritch Invocations</summary>
+            <p class="hint">Choose exactly <strong>{{invocationData.required}}</strong> Eldritch Invocation{{#unless (eq invocationData.required 1)}}s{{/unless}}.</p>
+            <p>Selected Eldritch Invocations: <strong>{{build.invocationUuids.length}} / {{invocationData.required}}</strong></p>
+            {{#if invocationData.selected.length}}
+              <ul class="l12024b-selected-list">
+                {{#each invocationData.selected}}
+                  <li><strong>{{name}}</strong> <span class="hint">{{sourceLabel}}</span></li>
+                {{/each}}
+              </ul>
+            {{/if}}
+            {{#if invocationData.options.length}}
+              <div class="l12024b-spell-list">
+                {{#each invocationData.options}}
+                  <div class="l12024b-spell-row {{#if checked}}selected{{/if}}">
+                    <div class="l12024b-spell-main">
+                      <strong class="l12024b-spell-name">{{name}}</strong>
+                      <span class="l12024b-spell-source">{{sourceLabel}}</span>
+                    </div>
+                    <div class="l12024b-inline-actions">
+                      <button type="button" data-action="openItem" data-uuid="{{uuid}}"><i class="fas fa-book-open"></i> Description</button>
+                      {{#if checked}}
+                        <button type="button" data-action="removeInvocation" data-uuid="{{uuid}}"><i class="fas fa-minus-circle"></i> Remove</button>
+                      {{else}}
+                        <button type="button" data-action="chooseInvocation" data-uuid="{{uuid}}"><i class="fas fa-check"></i> Choose</button>
+                      {{/if}}
+                    </div>
+                  </div>
+                {{/each}}
+              </div>
+            {{else}}
+              <p class="warning">No Eldritch Invocation options were found in enabled sourcebook compendiums.</p>
+            {{/if}}
+          </details>
+        {{/if}}
+      {{else}}
+        <p class="warning">No built-in prompt map was found for this class name. The class item will still be added, but class skill and weapon mastery prompts are skipped.</p>
+      {{/if}}
+    </section>
+  {{/if}}
+
+
+  {{#if (eq currentStep "Starting Equipment")}}
+    <section class="l12024b-panel">
+      <h2>Starting Equipment</h2>
+      <p class="hint">Choose this character's class starting equipment. Background starting gear is added automatically from the selected background when it can be matched to your enabled sourcebook items.</p>
+
+      {{#if startingEquipmentData.backgroundItems.length}}
+        <h3>Background Gear</h3>
+        <ul class="l12024b-selected-list">
+          {{#each startingEquipmentData.backgroundItems}}
+            <li><strong>{{#if count}}{{#unless (eq count 1)}}{{count}}× {{/unless}}{{/if}}{{name}}</strong> <span class="hint">{{sourceLabel}}</span></li>
+          {{/each}}
+        </ul>
+      {{/if}}
+
+      {{#if startingEquipmentData.classGroups.length}}
+        <h3>Class Gear Choices</h3>
+        <div class="l12024b-equipment-groups">
+          {{#each startingEquipmentData.classGroups}}
+            <fieldset class="l12024b-equipment-group">
+              <legend>{{label}}</legend>
+              {{#each options}}
+                <label class="l12024b-check l12024b-equipment-option l12024b-equipment-package">
+                  <input type="radio" name="equipment.{{../id}}" data-equipment-choice data-group="{{../id}}" value="{{id}}" {{checked checked}}>
+                  <span>{{label}}{{#if missing.length}} <em class="warning">Missing: {{#each missing}}{{this}}{{#unless @last}}, {{/unless}}{{/each}}</em>{{/if}}</span>
+                </label>
+              {{/each}}
+            </fieldset>
+          {{/each}}
+        </div>
+      {{else}}
+        <p class="warning">No starting equipment profile was found for the selected class. The class item will still be imported.</p>
+      {{/if}}
+
+      {{#if selectedEquipment.length}}
+        <h3>Gear That Will Be Added</h3>
+        <ul class="l12024b-selected-list">
+          {{#each selectedEquipment}}
+            <li><strong>{{#if count}}{{#unless (eq count 1)}}{{count}}× {{/unless}}{{/if}}{{name}}</strong> <span class="hint">{{sourceLabel}}</span></li>
+          {{/each}}
+        </ul>
+      {{/if}}
+    </section>
+  {{/if}}
+
+  {{#if (eq currentStep "Spells")}}
+    <section class="l12024b-panel">
+      <h2>Spells</h2>
+      {{#if spellPrompt}}
+        {{#if spellPrompt.cantrips}}
+          <details class="l12024b-collapsible" open>
+            <summary>Cantrips</summary>
+            <p class="hint">Choose exactly <strong>{{spellPrompt.cantrips}}</strong> cantrip{{#unless (eq spellPrompt.cantrips 1)}}s{{/unless}} from this class's 2024 cantrip list.</p>
+            <p>Selected Cantrips: <strong>{{build.cantripUuids.length}} / {{spellPrompt.cantrips}}</strong></p>
+            <label class="l12024b-search-row">
+              <span>Search Cantrips</span>
+              <input type="search" data-search="cantrips" value="{{searchTerms.cantrips}}" placeholder="Type a cantrip name...">
+            </label>
+            {{#if selectedCantrips.length}}
+              <ul class="l12024b-selected-list">
+                {{#each selectedCantrips}}
+                  <li><strong>{{name}}</strong> <span class="hint">{{sourceLabel}}</span></li>
+                {{/each}}
+              </ul>
+            {{/if}}
+            {{#if cantripOptions.length}}
+              <div class="l12024b-spell-list">
+                {{#each cantripOptions}}
+                  <div class="l12024b-spell-row {{#if checked}}selected{{/if}}">
+                    <div class="l12024b-spell-main">
+                      <strong class="l12024b-spell-name">{{name}}</strong>
+                      <span class="l12024b-spell-source">{{sourceLabel}}</span>
+                    </div>
+                    <div class="l12024b-inline-actions">
+                      <button type="button" data-action="openItem" data-uuid="{{uuid}}"><i class="fas fa-book-open"></i> Description</button>
+                      {{#if checked}}
+                        <button type="button" data-action="removeCantrip" data-uuid="{{uuid}}"><i class="fas fa-minus-circle"></i> Remove</button>
+                      {{else}}
+                        <button type="button" data-action="chooseCantrip" data-uuid="{{uuid}}"><i class="fas fa-check"></i> Choose</button>
+                      {{/if}}
+                    </div>
+                  </div>
+                {{/each}}
+              </div>
+            {{else}}
+              <p class="warning">No cantrips were found in the enabled character creation sources for this class.</p>
+            {{/if}}
+          </details>
+        {{/if}}
+
+        {{#if spellPrompt.level1}}
+          <details class="l12024b-collapsible" open>
+            <summary>Level 1 Spells</summary>
+            <p class="hint">Choose exactly <strong>{{spellPrompt.level1}}</strong> level 1 spell{{#unless (eq spellPrompt.level1 1)}}s{{/unless}} from this class's 2024 level 1 spell list.</p>
+            <p>Selected Level 1 Spells: <strong>{{build.spellUuids.length}} / {{spellPrompt.level1}}</strong></p>
+            <label class="l12024b-search-row">
+              <span>Search Level 1 Spells</span>
+              <input type="search" data-search="level1Spells" value="{{searchTerms.level1Spells}}" placeholder="Type a spell name...">
+            </label>
+            {{#if selectedLevel1Spells.length}}
+              <ul class="l12024b-selected-list">
+                {{#each selectedLevel1Spells}}
+                  <li><strong>{{name}}</strong> <span class="hint">{{sourceLabel}}</span></li>
+                {{/each}}
+              </ul>
+            {{/if}}
+            {{#if level1SpellOptions.length}}
+              <div class="l12024b-spell-list">
+                {{#each level1SpellOptions}}
+                  <div class="l12024b-spell-row {{#if checked}}selected{{/if}}">
+                    <div class="l12024b-spell-main">
+                      <strong class="l12024b-spell-name">{{name}}</strong>
+                      <span class="l12024b-spell-source">{{sourceLabel}}</span>
+                    </div>
+                    <div class="l12024b-inline-actions">
+                      <button type="button" data-action="openItem" data-uuid="{{uuid}}"><i class="fas fa-book-open"></i> Description</button>
+                      {{#if checked}}
+                        <button type="button" data-action="removeSpell" data-uuid="{{uuid}}"><i class="fas fa-minus-circle"></i> Remove</button>
+                      {{else}}
+                        <button type="button" data-action="chooseSpell" data-uuid="{{uuid}}"><i class="fas fa-check"></i> Choose</button>
+                      {{/if}}
+                    </div>
+                  </div>
+                {{/each}}
+              </div>
+            {{else}}
+              <p class="warning">No level 1 spells were found in the enabled character creation sources for this class.</p>
+            {{/if}}
+          </details>
+        {{/if}}
+
+        {{#if magicInitiateData.active}}
+          <details class="l12024b-collapsible" open>
+            <summary>Magic Initiate ({{magicInitiateData.sourceLabel}})</summary>
+            <p class="hint">Choose <strong>2 cantrips</strong> and <strong>1 level 1 spell</strong> granted by the background Origin feat. The feat itself is imported silently; these spells are added by the builder.</p>
+
+            <h4>Magic Initiate Cantrips</h4>
+            <p>Selected Magic Initiate Cantrips: <strong>{{build.magicInitiateCantripUuids.length}} / {{magicInitiateData.requiredCantrips}}</strong></p>
+            <label class="l12024b-search-row">
+              <span>Search Magic Initiate Cantrips</span>
+              <input type="search" data-search="magicInitiateCantrips" value="{{searchTerms.magicInitiateCantrips}}" placeholder="Type a cantrip name...">
+            </label>
+            {{#if magicInitiateData.selectedCantrips.length}}
+              <ul class="l12024b-selected-list">
+                {{#each magicInitiateData.selectedCantrips}}
+                  <li><strong>{{name}}</strong> <span class="hint">{{sourceLabel}}</span></li>
+                {{/each}}
+              </ul>
+            {{/if}}
+            {{#if magicInitiateData.cantripOptions.length}}
+              <div class="l12024b-spell-list">
+                {{#each magicInitiateData.cantripOptions}}
+                  <div class="l12024b-spell-row {{#if checked}}selected{{/if}}">
+                    <div class="l12024b-spell-main">
+                      <strong class="l12024b-spell-name">{{name}}</strong>
+                      <span class="l12024b-spell-source">{{sourceLabel}}</span>
+                    </div>
+                    <div class="l12024b-inline-actions">
+                      <button type="button" data-action="openItem" data-uuid="{{uuid}}"><i class="fas fa-book-open"></i> Description</button>
+                      {{#if checked}}
+                        <button type="button" data-action="removeMagicInitiateCantrip" data-uuid="{{uuid}}"><i class="fas fa-minus-circle"></i> Remove</button>
+                      {{else}}
+                        <button type="button" data-action="chooseMagicInitiateCantrip" data-uuid="{{uuid}}"><i class="fas fa-check"></i> Choose</button>
+                      {{/if}}
+                    </div>
+                  </div>
+                {{/each}}
+              </div>
+            {{else}}
+              <p class="warning">No eligible Magic Initiate cantrips were found in the enabled character creation sources.</p>
+            {{/if}}
+
+            <h4>Magic Initiate Level 1 Spell</h4>
+            <p>Selected Magic Initiate Spell: <strong>{{#if magicInitiateData.selectedSpell.length}}{{#each magicInitiateData.selectedSpell}}{{name}}{{/each}}{{else}}None{{/if}} / {{magicInitiateData.requiredSpells}}</strong></p>
+            <label class="l12024b-search-row">
+              <span>Search Magic Initiate Level 1 Spells</span>
+              <input type="search" data-search="magicInitiateSpell" value="{{searchTerms.magicInitiateSpell}}" placeholder="Type a spell name...">
+            </label>
+            {{#if magicInitiateData.spellOptions.length}}
+              <div class="l12024b-spell-list">
+                {{#each magicInitiateData.spellOptions}}
+                  <div class="l12024b-spell-row {{#if checked}}selected{{/if}}">
+                    <div class="l12024b-spell-main">
+                      <strong class="l12024b-spell-name">{{name}}</strong>
+                      <span class="l12024b-spell-source">{{sourceLabel}}</span>
+                    </div>
+                    <div class="l12024b-inline-actions">
+                      <button type="button" data-action="openItem" data-uuid="{{uuid}}"><i class="fas fa-book-open"></i> Description</button>
+                      {{#if checked}}
+                        <button type="button" data-action="removeMagicInitiateSpell"><i class="fas fa-minus-circle"></i> Remove</button>
+                      {{else}}
+                        <button type="button" data-action="chooseMagicInitiateSpell" data-uuid="{{uuid}}"><i class="fas fa-check"></i> Choose</button>
+                      {{/if}}
+                    </div>
+                  </div>
+                {{/each}}
+              </div>
+            {{else}}
+              <p class="warning">No eligible Magic Initiate level 1 spells were found in the enabled character creation sources.</p>
+            {{/if}}
+          </details>
+        {{/if}}
+
+        {{#if pactOfTheTomeData.active}}
+          <details class="l12024b-collapsible" open>
+            <summary>Pact of the Tome</summary>
+            <p class="hint">Pact of the Tome grants <strong>3 additional cantrips</strong> and <strong>2 level 1 ritual spells</strong>. These are selected in addition to your normal Warlock spells.</p>
+
+            <h4>Tome Cantrips</h4>
+            <p>Selected Tome Cantrips: <strong>{{build.tomeCantripUuids.length}} / {{pactOfTheTomeData.requiredCantrips}}</strong></p>
+            <label class="l12024b-search-row">
+              <span>Search Tome Cantrips</span>
+              <input type="search" data-search="tomeCantrips" value="{{searchTerms.tomeCantrips}}" placeholder="Type a cantrip name...">
+            </label>
+            {{#if pactOfTheTomeData.selectedCantrips.length}}
+              <ul class="l12024b-selected-list">
+                {{#each pactOfTheTomeData.selectedCantrips}}
+                  <li><strong>{{name}}</strong> <span class="hint">{{sourceLabel}}</span></li>
+                {{/each}}
+              </ul>
+            {{/if}}
+            {{#if pactOfTheTomeData.cantripOptions.length}}
+              <div class="l12024b-spell-list">
+                {{#each pactOfTheTomeData.cantripOptions}}
+                  <div class="l12024b-spell-row {{#if checked}}selected{{/if}}">
+                    <div class="l12024b-spell-main">
+                      <strong class="l12024b-spell-name">{{name}}</strong>
+                      <span class="l12024b-spell-source">{{sourceLabel}}</span>
+                    </div>
+                    <div class="l12024b-inline-actions">
+                      <button type="button" data-action="openItem" data-uuid="{{uuid}}"><i class="fas fa-book-open"></i> Description</button>
+                      {{#if checked}}
+                        <button type="button" data-action="removeTomeCantrip" data-uuid="{{uuid}}"><i class="fas fa-minus-circle"></i> Remove</button>
+                      {{else}}
+                        <button type="button" data-action="chooseTomeCantrip" data-uuid="{{uuid}}"><i class="fas fa-check"></i> Choose</button>
+                      {{/if}}
+                    </div>
+                  </div>
+                {{/each}}
+              </div>
+            {{else}}
+              <p class="warning">No eligible Pact of the Tome cantrips were found in the enabled character creation sources.</p>
+            {{/if}}
+
+            <h4>Tome Ritual Spells</h4>
+            <p>Selected Tome Ritual Spells: <strong>{{build.tomeRitualSpellUuids.length}} / {{pactOfTheTomeData.requiredRituals}}</strong></p>
+            <label class="l12024b-search-row">
+              <span>Search Tome Ritual Spells</span>
+              <input type="search" data-search="tomeRitualSpells" value="{{searchTerms.tomeRitualSpells}}" placeholder="Type a ritual spell name...">
+            </label>
+            {{#if pactOfTheTomeData.selectedRituals.length}}
+              <ul class="l12024b-selected-list">
+                {{#each pactOfTheTomeData.selectedRituals}}
+                  <li><strong>{{name}}</strong> <span class="hint">{{sourceLabel}}</span></li>
+                {{/each}}
+              </ul>
+            {{/if}}
+            {{#if pactOfTheTomeData.ritualOptions.length}}
+              <div class="l12024b-spell-list">
+                {{#each pactOfTheTomeData.ritualOptions}}
+                  <div class="l12024b-spell-row {{#if checked}}selected{{/if}}">
+                    <div class="l12024b-spell-main">
+                      <strong class="l12024b-spell-name">{{name}}</strong>
+                      <span class="l12024b-spell-source">{{sourceLabel}}</span>
+                    </div>
+                    <div class="l12024b-inline-actions">
+                      <button type="button" data-action="openItem" data-uuid="{{uuid}}"><i class="fas fa-book-open"></i> Description</button>
+                      {{#if checked}}
+                        <button type="button" data-action="removeTomeRitualSpell" data-uuid="{{uuid}}"><i class="fas fa-minus-circle"></i> Remove</button>
+                      {{else}}
+                        <button type="button" data-action="chooseTomeRitualSpell" data-uuid="{{uuid}}"><i class="fas fa-check"></i> Choose</button>
+                      {{/if}}
+                    </div>
+                  </div>
+                {{/each}}
+              </div>
+            {{else}}
+              <p class="warning">No eligible Pact of the Tome level 1 ritual spells were found in the enabled character creation sources.</p>
+            {{/if}}
+          </details>
+        {{/if}}
+      {{else}}
+        <p class="hint">This class does not need spell choices from this builder.</p>
+      {{/if}}
+
+      {{#unless spellPrompt}}
+        {{#if magicInitiateData.active}}
+          <details class="l12024b-collapsible" open>
+            <summary>Magic Initiate ({{magicInitiateData.sourceLabel}})</summary>
+            <p class="hint">Choose <strong>2 cantrips</strong> and <strong>1 level 1 spell</strong> granted by the background Origin feat.</p>
+
+            <h4>Magic Initiate Cantrips</h4>
+            <p>Selected Magic Initiate Cantrips: <strong>{{build.magicInitiateCantripUuids.length}} / {{magicInitiateData.requiredCantrips}}</strong></p>
+            <label class="l12024b-search-row"><span>Search Magic Initiate Cantrips</span><input type="search" data-search="magicInitiateCantrips" value="{{searchTerms.magicInitiateCantrips}}" placeholder="Type a cantrip name..."></label>
+            {{#if magicInitiateData.selectedCantrips.length}}<ul class="l12024b-selected-list">{{#each magicInitiateData.selectedCantrips}}<li><strong>{{name}}</strong> <span class="hint">{{sourceLabel}}</span></li>{{/each}}</ul>{{/if}}
+            {{#if magicInitiateData.cantripOptions.length}}<div class="l12024b-spell-list">{{#each magicInitiateData.cantripOptions}}<div class="l12024b-spell-row {{#if checked}}selected{{/if}}"><div class="l12024b-spell-main"><strong class="l12024b-spell-name">{{name}}</strong><span class="l12024b-spell-source">{{sourceLabel}}</span></div><div class="l12024b-inline-actions"><button type="button" data-action="openItem" data-uuid="{{uuid}}"><i class="fas fa-book-open"></i> Description</button>{{#if checked}}<button type="button" data-action="removeMagicInitiateCantrip" data-uuid="{{uuid}}"><i class="fas fa-minus-circle"></i> Remove</button>{{else}}<button type="button" data-action="chooseMagicInitiateCantrip" data-uuid="{{uuid}}"><i class="fas fa-check"></i> Choose</button>{{/if}}</div></div>{{/each}}</div>{{/if}}
+
+            <h4>Magic Initiate Level 1 Spell</h4>
+            <p>Selected Magic Initiate Spell: <strong>{{#if magicInitiateData.selectedSpell.length}}{{#each magicInitiateData.selectedSpell}}{{name}}{{/each}}{{else}}None{{/if}} / {{magicInitiateData.requiredSpells}}</strong></p>
+            <label class="l12024b-search-row"><span>Search Magic Initiate Level 1 Spells</span><input type="search" data-search="magicInitiateSpell" value="{{searchTerms.magicInitiateSpell}}" placeholder="Type a spell name..."></label>
+            {{#if magicInitiateData.spellOptions.length}}<div class="l12024b-spell-list">{{#each magicInitiateData.spellOptions}}<div class="l12024b-spell-row {{#if checked}}selected{{/if}}"><div class="l12024b-spell-main"><strong class="l12024b-spell-name">{{name}}</strong><span class="l12024b-spell-source">{{sourceLabel}}</span></div><div class="l12024b-inline-actions"><button type="button" data-action="openItem" data-uuid="{{uuid}}"><i class="fas fa-book-open"></i> Description</button>{{#if checked}}<button type="button" data-action="removeMagicInitiateSpell"><i class="fas fa-minus-circle"></i> Remove</button>{{else}}<button type="button" data-action="chooseMagicInitiateSpell" data-uuid="{{uuid}}"><i class="fas fa-check"></i> Choose</button>{{/if}}</div></div>{{/each}}</div>{{/if}}
+          </details>
+        {{/if}}
+      {{/unless}}
+    </section>
+  {{/if}}
+
+
+  {{#if (eq currentStep "Languages")}}
+    <section class="l12024b-panel">
+      <h2>Languages</h2>
+      <p class="hint">Choose exactly <strong>{{languagePromptCount}}</strong> additional languages. Common is not shown here.</p>
+      <p>Selected Languages: <strong>{{build.languageChoices.length}} / {{languagePromptCount}}</strong></p>
+      <label class="l12024b-search-row">
+        <span>Search Languages</span>
+        <input type="search" data-search="languages" value="{{searchTerms.languages}}" placeholder="Type a language name...">
+      </label>
+      {{#if selectedLanguages.length}}
+        <ul class="l12024b-selected-list">
+          {{#each selectedLanguages}}
+            <li><strong>{{label}}</strong></li>
+          {{/each}}
+        </ul>
+      {{/if}}
+      <div class="l12024b-checkbox-grid">
+        {{#each languageOptions}}
+          <label class="{{#if disabled}}disabled{{/if}}">
+            <input type="checkbox" data-language value="{{key}}" {{#if checked}}checked{{/if}} {{#if disabled}}disabled{{/if}}> {{label}}
+          </label>
+        {{/each}}
+      </div>
+    </section>
+  {{/if}}
+
+  {{#if (eq currentStep "Review")}}
+    <section class="l12024b-panel">
+      <h2>Review</h2>
+      <dl class="l12024b-review">
+        <dt>Name</dt><dd>{{build.name}}</dd>
+        <dt>Species</dt><dd>{{selectedSpeciesName}}</dd>
+        {{#if speciesChoiceData.selected}}<dt>{{speciesChoiceData.title}}</dt><dd>{{speciesChoiceData.selectedLabel}}</dd>{{/if}}
+        <dt>Background</dt><dd>{{selectedBackgroundName}}</dd>
+        {{#if humanSkillData.selected}}<dt>Human Skill</dt><dd>{{humanSkillData.selectedLabel}}</dd>{{/if}}
+        {{#if originFeatData.selected.length}}<dt>Human Origin Feat</dt><dd>{{#each originFeatData.selected}}{{name}}{{#unless @last}}, {{/unless}}{{/each}}</dd>{{/if}}
+        <dt>Class</dt><dd>{{selectedClassName}}</dd>
+        {{#if invocationData.selected.length}}
+          <dt>Eldritch Invocation</dt><dd>{{#each invocationData.selected}}{{name}}{{#unless @last}}, {{/unless}}{{/each}}</dd>
+        {{/if}}
+        {{#if selectedWeaponMasteries.length}}
+          <dt>Weapon Masteries</dt><dd>{{#each selectedWeaponMasteries}}{{name}}{{#if mastery}} ({{masteryLabel}}){{/if}}{{#unless @last}}, {{/unless}}{{/each}}</dd>
+        {{/if}}
+        {{#if selectedEquipment.length}}
+          <dt>Starting Equipment</dt><dd>{{#each selectedEquipment}}{{#if count}}{{#unless (eq count 1)}}{{count}}× {{/unless}}{{/if}}{{name}}{{#unless @last}}, {{/unless}}{{/each}}</dd>
+        {{/if}}
+        {{#if selectedCantrips.length}}
+          <dt>Cantrips</dt><dd>{{#each selectedCantrips}}{{name}}{{#unless @last}}, {{/unless}}{{/each}}</dd>
+        {{/if}}
+        {{#if selectedLevel1Spells.length}}
+          <dt>Level 1 Spells</dt><dd>{{#each selectedLevel1Spells}}{{name}}{{#unless @last}}, {{/unless}}{{/each}}</dd>
+        {{/if}}
+        {{#if magicInitiateData.selectedCantrips.length}}
+          <dt>Magic Initiate Cantrips</dt><dd>{{#each magicInitiateData.selectedCantrips}}{{name}}{{#unless @last}}, {{/unless}}{{/each}}</dd>
+        {{/if}}
+        {{#if magicInitiateData.selectedSpell.length}}
+          <dt>Magic Initiate Spell</dt><dd>{{#each magicInitiateData.selectedSpell}}{{name}}{{#unless @last}}, {{/unless}}{{/each}}</dd>
+        {{/if}}
+        {{#if pactOfTheTomeData.selectedCantrips.length}}
+          <dt>Pact of the Tome Cantrips</dt><dd>{{#each pactOfTheTomeData.selectedCantrips}}{{name}}{{#unless @last}}, {{/unless}}{{/each}}</dd>
+        {{/if}}
+        {{#if pactOfTheTomeData.selectedRituals.length}}
+          <dt>Pact of the Tome Rituals</dt><dd>{{#each pactOfTheTomeData.selectedRituals}}{{name}}{{#unless @last}}, {{/unless}}{{/each}}</dd>
+        {{/if}}
+        {{#if selectedLanguages.length}}
+          <dt>Languages</dt><dd>{{#each selectedLanguages}}{{label}}{{#unless @last}}, {{/unless}}{{/each}}</dd>
+        {{/if}}
+      </dl>
+      <h3>Base Ability Scores</h3>
+      <div class="l12024b-scoreline">
+        {{#each abilities}}
+          <span>{{label}} {{final}}</span>
+        {{/each}}
+      </div>
+      <p class="hint">Finish creates or updates a real dnd5e character actor and imports the selected species, background, and class items. Background ASIs are selected in this builder, while the background origin feat remains on the background. Class skills, weapon masteries, level 1 class features, starting equipment, cantrips, level 1 spells, languages, and Human choices and Tiefling legacy selected here are imported onto the actor while built-in class/equipment prompts are suppressed.</p>
+    </section>
+  {{/if}}
+
+  <footer class="l12024b-footer">
+    <button type="button" data-action="back" {{#if isFirst}}disabled{{/if}}>Back</button>
+    {{#if isLast}}
+      <button type="button" data-action="finish"><i class="fas fa-check"></i> Finish</button>
+    {{else}}
+      <button type="button" data-action="next">Next</button>
+    {{/if}}
+  </footer>
+</form>

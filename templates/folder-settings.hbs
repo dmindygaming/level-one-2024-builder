@@ -1,0 +1,22 @@
+<form class="l12024b l12024b-settings {{themeClass}}" style="{{themeInlineStyle}}">
+  <section class="l12024b-panel">
+    <h2>Character Actor Folder</h2>
+    <p class="hint">Choose where newly-created character actors from the builder should be stored. Existing actors are not moved.</p>
+
+    <label class="l12024b-field">
+      <span>Folder</span>
+      <select name="characterFolderId">
+        <option value="" {{#unless selected}}selected{{/unless}}>No folder / root Actors directory</option>
+        {{#each folders}}
+          <option value="{{id}}" {{#if selected}}selected{{/if}}>{{name}}</option>
+        {{/each}}
+      </select>
+    </label>
+
+    <p class="hint">Current selection: <strong>{{selectedFolderName}}</strong></p>
+  </section>
+
+  <footer class="l12024b-footer">
+    <button type="submit"><i class="fas fa-save"></i> Save</button>
+  </footer>
+</form>
