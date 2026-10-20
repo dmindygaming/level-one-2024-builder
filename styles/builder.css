@@ -92,7 +92,8 @@
 }
 
 .l12024b-methods label,
-.l12024b-checkbox-grid label {
+.l12024b-checkbox-grid label,
+.l12024b-check {
   display: flex;
   align-items: center;
   gap: 6px;
@@ -125,6 +126,23 @@
 
 .l12024b-checkbox-grid.spells {
   grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+}
+
+/* v1.20.2: .l12024b-choice-grid/.l12024b-check back this template's compact
+   radio/checkbox option grids (Human Skill Proficiency, the "+1 to three
+   abilities" background ASI picker, etc.) but had no CSS defined at all,
+   so those options rendered unstyled and wrapped one per line instead of
+   sitting in a tidy grid of option chips. */
+.l12024b-choice-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 6px;
+  margin: 8px 0 12px;
+}
+
+.l12024b-choice-grid.compact {
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  gap: 4px;
 }
 
 .l12024b-scoreline {
@@ -506,6 +524,13 @@
 }
 
 .l12024b-selected-list li button {
+  /* v1.20.2: Foundry/dnd5e's own form CSS gives buttons inside a flex row
+     flex:1, so without an explicit override here the Remove button grew to
+     fill the whole row - and once the row wrapped (long spell/source names),
+     that meant a Remove button stretched the full panel width on its own
+     line instead of sitting compactly next to the item it removes. */
+  flex: 0 0 auto !important;
+  width: auto !important;
   margin-left: auto;
 }
 
@@ -625,6 +650,11 @@
 }
 
 /* v1.5.5 readability fixes */
+.level-one-2024-builder .l12024b-equipment-groups {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
 .level-one-2024-builder .l12024b-equipment-group {
   display: flex;
   flex-direction: column;
@@ -729,6 +759,7 @@
 .l12024b-background-gear,
 .l12024b-methods label,
 .l12024b-checkbox-grid label,
+.l12024b-check,
 .l12024b-scoreline span {
   border-color: var(--l12024b-border) !important;
 }
@@ -753,6 +784,7 @@
 .l12024b button,
 .l12024b-methods label,
 .l12024b-checkbox-grid label,
+.l12024b-check,
 .l12024b-scoreline span,
 .l12024b-choice-row,
 .l12024b-card,
@@ -881,6 +913,7 @@
 .l12024b-background-gear,
 .l12024b-methods label,
 .l12024b-checkbox-grid label,
+.l12024b-check,
 .l12024b-scoreline span {
   background: var(--l12024b-panel-bg) !important;
   color: var(--l12024b-text) !important;
@@ -990,6 +1023,7 @@
 .l12024b-window-theme-dark .l12024b-background-gear,
 .l12024b-window-theme-dark .l12024b-methods label,
 .l12024b-window-theme-dark .l12024b-checkbox-grid label,
+.l12024b-window-theme-dark .l12024b-check,
 .l12024b-window-theme-dark .l12024b-scoreline span {
   background: #222733 !important;
   color: #f0eadf !important;
@@ -1004,6 +1038,7 @@
 .l12024b-window-theme-crimson .l12024b-background-gear,
 .l12024b-window-theme-crimson .l12024b-methods label,
 .l12024b-window-theme-crimson .l12024b-checkbox-grid label,
+.l12024b-window-theme-crimson .l12024b-check,
 .l12024b-window-theme-crimson .l12024b-scoreline span {
   background: #3a151d !important;
   color: #fff0e8 !important;
@@ -1018,6 +1053,7 @@
 .l12024b-window-theme-arcane .l12024b-background-gear,
 .l12024b-window-theme-arcane .l12024b-methods label,
 .l12024b-window-theme-arcane .l12024b-checkbox-grid label,
+.l12024b-window-theme-arcane .l12024b-check,
 .l12024b-window-theme-arcane .l12024b-scoreline span {
   background: #132c4e !important;
   color: #eef8ff !important;
@@ -1032,6 +1068,7 @@
 .l12024b-window-theme-clean .l12024b-background-gear,
 .l12024b-window-theme-clean .l12024b-methods label,
 .l12024b-window-theme-clean .l12024b-checkbox-grid label,
+.l12024b-window-theme-clean .l12024b-check,
 .l12024b-window-theme-clean .l12024b-scoreline span {
   background: #ffffff !important;
   color: #1e1e1e !important;
@@ -1091,6 +1128,7 @@
 .level-one-2024-builder .l12024b-background-gear,
 .level-one-2024-builder .l12024b-methods label,
 .level-one-2024-builder .l12024b-checkbox-grid label,
+.level-one-2024-builder .l12024b-check,
 .level-one-2024-builder .l12024b-scoreline span {
   background: var(--l12024b-panel-bg) !important;
   color: var(--l12024b-text) !important;
@@ -1223,6 +1261,7 @@ html body .level-one-2024-builder form.l12024b .l12024b-steps,
 html body .level-one-2024-builder form.l12024b .l12024b-footer,
 html body .level-one-2024-builder form.l12024b .l12024b-methods label,
 html body .level-one-2024-builder form.l12024b .l12024b-checkbox-grid label,
+html body .level-one-2024-builder form.l12024b .l12024b-check,
 html body .level-one-2024-builder form.l12024b .l12024b-choice-card,
 html body .level-one-2024-builder form.l12024b .l12024b-spell-row,
 html body .level-one-2024-builder form.l12024b .l12024b-equipment-package {
