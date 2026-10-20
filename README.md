@@ -1,6 +1,16 @@
 # Level One 2024 Character Builder
 
-Current version: v1.10.10
+Current version: v1.10.11
+
+## v1.10.11: Spell selection now opens the dnd5e Compendium Browser instead of one long in-wizard list
+
+The Spells step used to render every eligible cantrip/spell as its own checkbox row directly inside the wizard window - for a class with a large spell list (or once Magic Initiate / Pact of the Tome sections were also showing their own lists), that made the step extremely long and slow to scroll through.
+
+Cantrips, Level 1 Spells, Magic Initiate cantrips/spell, and Pact of the Tome cantrips/ritual spells are now chosen through the dnd5e system's own Compendium Browser (the same searchable, scrollable browser the system's native class/background/species pickers already use in this module) via a "Browse Spell Compendium" button. The browser opens pre-locked to the correct spell level (cantrip vs. level 1, and ritual-only for Pact of the Tome rituals) and, where the system's spell list registry has an entry for that class, to that class's official 2024 spell list - the same registry dnd5e's own level-up tools use to know which spells belong to which class - so only valid options can be picked, and it enforces the exact number of picks required (e.g. exactly 2 cantrips) before it will let you confirm. Pact of the Tome cantrips/rituals intentionally draw from any class's list, matching the 2024 rules for that invocation. If a class has no registered 2024 spell list in the installed sources (most notably Artificer, which the official 2024 PHB didn't update), the browser falls back to showing every spell at the right level rather than refusing to open.
+
+Previously-chosen spells still show in a compact list on the step itself with a one-click Remove button, so you don't have to reopen the browser just to drop one pick. This also removes the per-spell automation-detection/scan work the old inline list did on every render of the step, which should make the step noticeably snappier in addition to shorter.
+
+Note: this fix could not be verified against a live Foundry session before release (browser access was unavailable while working on it). It's built directly against the dnd5e system's own Compendium Browser source (confirmed the "spells" tab, its level/spelllist/properties filter definitions, and the `CompendiumBrowser.select()` multi-select API this relies on, by reading the system's current source), but if the Browse button doesn't open, shows the wrong spells, or won't let you confirm the right count, please report back.
 
 ## v1.10.10: Fixed a ~30 second hang moving from "Background Ability Scores" into "Human Choices"
 
