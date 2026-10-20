@@ -499,6 +499,14 @@
 
 .l12024b-selected-list li {
   margin: 0.15rem 0;
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.l12024b-selected-list li button {
+  margin-left: auto;
 }
 
 .l12024b-spell-list {
