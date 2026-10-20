@@ -773,6 +773,38 @@ export const TOOL_KEY_ALIASES_2024 = {
   "musical instrument": ["music", "musical", "instrument"]
 };
 
+// v1.20.3: the tool pool offered by the Skilled origin feat ("proficiency in
+// any combination of three skills or tools of your choice"). Keys match
+// TOOL_KEY_ALIASES_2024 above exactly so _candidateToolKeys() can resolve each
+// choice onto the actor's actual system.tools.* proficiency fields.
+export const SKILLED_TOOL_OPTIONS_2024 = [
+  { key: "alchemist's supplies", label: "Alchemist's Supplies" },
+  { key: "brewer's supplies", label: "Brewer's Supplies" },
+  { key: "calligrapher's supplies", label: "Calligrapher's Supplies" },
+  { key: "carpenter's tools", label: "Carpenter's Tools" },
+  { key: "cartographer's tools", label: "Cartographer's Tools" },
+  { key: "cobbler's tools", label: "Cobbler's Tools" },
+  { key: "cook's utensils", label: "Cook's Utensils" },
+  { key: "glassblower's tools", label: "Glassblower's Tools" },
+  { key: "jeweler's tools", label: "Jeweler's Tools" },
+  { key: "leatherworker's tools", label: "Leatherworker's Tools" },
+  { key: "mason's tools", label: "Mason's Tools" },
+  { key: "painter's supplies", label: "Painter's Supplies" },
+  { key: "potter's tools", label: "Potter's Tools" },
+  { key: "smith's tools", label: "Smith's Tools" },
+  { key: "tinker's tools", label: "Tinker's Tools" },
+  { key: "weaver's tools", label: "Weaver's Tools" },
+  { key: "woodcarver's tools", label: "Woodcarver's Tools" },
+  { key: "disguise kit", label: "Disguise Kit" },
+  { key: "forgery kit", label: "Forgery Kit" },
+  { key: "herbalism kit", label: "Herbalism Kit" },
+  { key: "poisoner's kit", label: "Poisoner's Kit" },
+  { key: "navigator's tools", label: "Navigator's Tools" },
+  { key: "thieves' tools", label: "Thieves' Tools" },
+  { key: "gaming set", label: "Gaming Set" },
+  { key: "musical instrument", label: "Musical Instrument" }
+];
+
 export const SKILL_LABELS = {
   acr: "Acrobatics", ani: "Animal Handling", arc: "Arcana", ath: "Athletics", dec: "Deception",
   his: "History", ins: "Insight", itm: "Intimidation", inv: "Investigation", med: "Medicine",
