@@ -1,6 +1,16 @@
 # Level One 2024 Character Builder
 
-Current version: v1.20.2
+Current version: v1.20.3
+
+## v1.20.3: Skilled now actually asks which 3 skills/tools you get, and collapsed Spells sections stay collapsed
+
+Two more live-user reports, both real bugs:
+
+**The Skilled origin feat granted no proficiencies at all.** Skilled reads "You gain proficiency in any combination of three skills or tools of your choice" - that choice is normally handled by the feat's own native dnd5e advancement, which pops its own window when the feat is added to an actor. This builder, however, deliberately suppresses every native advancement popup when it imports an origin feat, precisely so a native window never interrupts the wizard - the same mechanism that lets Magic Initiate's spell choice be handled by this builder's own UI instead of a native one. That's correct for feats with no sub-choice (Alert, Healer, Lucky, etc.) and for Magic Initiate (which already has its own dedicated Spells-step UI), but Skilled had no equivalent of its own - so its one native choice got suppressed along with everything else and simply never happened, leaving the feat on the sheet with no proficiencies attached. This is the same root cause the v1.10.8 Fighting Style fix already diagnosed and fixed for a class feature; Skilled just hadn't been caught yet. Fixed the same way: Skilled now gets its own "Skilled Proficiencies" step (shown for a Human who picks it as their origin feat, or automatically for the Charlatan/Noble/Scribe backgrounds that grant it outright), where you pick any 3 of the 18 skills or 25 tools/kits/instruments, and the builder writes those proficiencies onto the character directly - the same way it already applies background, class, and Human skill proficiencies.
+
+Crafter (3 artisan's tools) and Musician (3 musical instruments) have the same underlying gap - their own native choice-advancement gets suppressed the same way, with no builder-side replacement yet. They haven't been reported as broken, but by this same logic they are; flagging it here rather than leaving it quiet. Can be fixed the same way Skilled just was, on request.
+
+**Collapsed Spells sections (Cantrips, Level 1 Spells, Pact of the Tome, etc.) reverted to fully expanded the moment you picked the next set.** Every `<details>` section on the Spells step was hard-coded `open` in the template, with nothing recording whether a player had manually collapsed one. Since choosing a spell triggers a full re-render of the step, that hard-coded `open` won, and the section snapped back open on every single pick - making the collapse/expand control on a long multi-section list (the whole point of the v1.10.11 rewrite) nearly useless once a class had several of these sections going at once. Each section's open/closed state is now tracked separately on the builder application instance and fed back into the template on every render, so collapsing one now actually stays collapsed through the rest of the step.
 
 ## v1.20.2: Fixed broken layout on the new Spells list and on compact radio/checkbox option grids
 

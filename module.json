@@ -2,7 +2,7 @@
   "id": "level-one-2024-builder",
   "title": "Level One 2024 Character Builder",
   "description": "A 2024-only level 1 character creation wizard for Foundry VTT v13 and the dnd5e system.",
-  "version": "1.20.2",
+  "version": "1.20.3",
   "url": "https://github.com/dmindygaming/level-one-2024-builder",
   "manifest": "https://github.com/dmindygaming/level-one-2024-builder/releases/latest/download/module.json",
   "download": "https://github.com/dmindygaming/level-one-2024-builder/releases/latest/download/module.zip",
