@@ -310,6 +310,39 @@
     </section>
   {{/if}}
 
+  {{#if (eq currentStep "Skilled Proficiencies")}}
+    <section class="l12024b-panel">
+      <h2>Skilled Proficiencies</h2>
+      <p class="hint">The Skilled origin feat grants proficiency in any combination of three skills or tools of your choice. The feat itself is imported silently; these proficiencies are added directly to your character sheet by the builder.</p>
+      <p>Selected: <strong>{{skilledFeatData.selectedCount}} / {{skilledFeatData.required}}</strong></p>
+      {{#if skilledFeatData.selectedLabels.length}}
+        <ul class="l12024b-selected-list">
+          {{#each skilledFeatData.selectedLabels}}
+            <li><strong>{{this}}</strong></li>
+          {{/each}}
+        </ul>
+      {{/if}}
+
+      <h3>Skills</h3>
+      <div class="l12024b-checkbox-grid">
+        {{#each skilledFeatData.skillOptions}}
+          <label class="{{#if disabled}}disabled{{/if}}">
+            <input type="checkbox" data-skilled-choice value="{{key}}" {{#if checked}}checked{{/if}} {{#if disabled}}disabled{{/if}}> {{label}}
+          </label>
+        {{/each}}
+      </div>
+
+      <h3>Tools</h3>
+      <div class="l12024b-checkbox-grid">
+        {{#each skilledFeatData.toolOptions}}
+          <label class="{{#if disabled}}disabled{{/if}}">
+            <input type="checkbox" data-skilled-choice value="{{key}}" {{#if checked}}checked{{/if}} {{#if disabled}}disabled{{/if}}> {{label}}
+          </label>
+        {{/each}}
+      </div>
+    </section>
+  {{/if}}
+
 
   {{#if (eq currentStep "Class")}}
     <section class="l12024b-panel">
@@ -411,7 +444,7 @@
 
 
         {{#if invocationData.required}}
-          <details class="l12024b-collapsible" open>
+          <details class="l12024b-collapsible" data-section="eldritchInvocations" {{#if sectionsOpen.eldritchInvocations}}open{{/if}}>
             <summary>Eldritch Invocations</summary>
             <p class="hint">Choose exactly <strong>{{invocationData.required}}</strong> Eldritch Invocation{{#unless (eq invocationData.required 1)}}s{{/unless}}.</p>
             <p>Selected Eldritch Invocations: <strong>{{build.invocationUuids.length}} / {{invocationData.required}}</strong></p>
@@ -503,7 +536,7 @@
       <p class="hint">Spell choices open the dnd5e Compendium Browser, already filtered to the right spell level and the correct 2024 spell list, so you can search and browse your real options instead of scrolling a long in-wizard list.</p>
       {{#if spellPrompt}}
         {{#if spellPrompt.cantrips}}
-          <details class="l12024b-collapsible" open>
+          <details class="l12024b-collapsible" data-section="cantrips" {{#if sectionsOpen.cantrips}}open{{/if}}>
             <summary>Cantrips</summary>
             <p class="hint">Choose exactly <strong>{{spellPrompt.cantrips}}</strong> cantrip{{#unless (eq spellPrompt.cantrips 1)}}s{{/unless}} from this class's 2024 cantrip list.</p>
             <p>Selected Cantrips: <strong>{{build.cantripUuids.length}} / {{spellPrompt.cantrips}}</strong></p>
@@ -522,7 +555,7 @@
         {{/if}}
 
         {{#if spellPrompt.level1}}
-          <details class="l12024b-collapsible" open>
+          <details class="l12024b-collapsible" data-section="level1Spells" {{#if sectionsOpen.level1Spells}}open{{/if}}>
             <summary>Level 1 Spells</summary>
             <p class="hint">Choose exactly <strong>{{spellPrompt.level1}}</strong> level 1 spell{{#unless (eq spellPrompt.level1 1)}}s{{/unless}} from this class's 2024 level 1 spell list.</p>
             <p>Selected Level 1 Spells: <strong>{{build.spellUuids.length}} / {{spellPrompt.level1}}</strong></p>
@@ -541,7 +574,7 @@
         {{/if}}
 
         {{#if magicInitiateData.active}}
-          <details class="l12024b-collapsible" open>
+          <details class="l12024b-collapsible" data-section="magicInitiate" {{#if sectionsOpen.magicInitiate}}open{{/if}}>
             <summary>Magic Initiate ({{magicInitiateData.sourceLabel}})</summary>
             <p class="hint">Choose <strong>2 cantrips</strong> and <strong>1 level 1 spell</strong> granted by the background Origin feat. The feat itself is imported silently; these spells are added by the builder.</p>
 
@@ -576,7 +609,7 @@
         {{/if}}
 
         {{#if pactOfTheTomeData.active}}
-          <details class="l12024b-collapsible" open>
+          <details class="l12024b-collapsible" data-section="pactOfTheTome" {{#if sectionsOpen.pactOfTheTome}}open{{/if}}>
             <summary>Pact of the Tome</summary>
             <p class="hint">Pact of the Tome grants <strong>3 additional cantrips</strong> and <strong>2 level 1 ritual spells</strong>, chosen from any class's spell list. These are selected in addition to your normal Warlock spells.</p>
 
@@ -615,7 +648,7 @@
 
       {{#unless spellPrompt}}
         {{#if magicInitiateData.active}}
-          <details class="l12024b-collapsible" open>
+          <details class="l12024b-collapsible" data-section="magicInitiate" {{#if sectionsOpen.magicInitiate}}open{{/if}}>
             <summary>Magic Initiate ({{magicInitiateData.sourceLabel}})</summary>
             <p class="hint">Choose <strong>2 cantrips</strong> and <strong>1 level 1 spell</strong> granted by the background Origin feat.</p>
 
@@ -671,6 +704,7 @@
         <dt>Background</dt><dd>{{selectedBackgroundName}}</dd>
         {{#if humanSkillData.selected}}<dt>Human Skill</dt><dd>{{humanSkillData.selectedLabel}}</dd>{{/if}}
         {{#if originFeatData.selected.length}}<dt>Human Origin Feat</dt><dd>{{#each originFeatData.selected}}{{name}}{{#unless @last}}, {{/unless}}{{/each}}</dd>{{/if}}
+        {{#if skilledFeatData.selectedLabels.length}}<dt>Skilled Proficiencies</dt><dd>{{#each skilledFeatData.selectedLabels}}{{this}}{{#unless @last}}, {{/unless}}{{/each}}</dd>{{/if}}
         <dt>Class</dt><dd>{{selectedClassName}}</dd>
         {{#if invocationData.selected.length}}
           <dt>Eldritch Invocation</dt><dd>{{#each invocationData.selected}}{{name}}{{#unless @last}}, {{/unless}}{{/each}}</dd>
