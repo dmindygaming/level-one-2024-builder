@@ -1,6 +1,10 @@
 # Level One 2024 Character Builder
 
-Current version: v1.10.11
+Current version: v1.20.0
+
+## v1.20.0: Version number bump
+
+No functional changes - this release renumbers the module from the 1.10.x line to 1.20.0. All functionality is identical to v1.10.11 below.
 
 ## v1.10.11: Spell selection now opens the dnd5e Compendium Browser instead of one long in-wizard list
 

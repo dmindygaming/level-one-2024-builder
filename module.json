@@ -2,7 +2,7 @@
   "id": "level-one-2024-builder",
   "title": "Level One 2024 Character Builder",
   "description": "A 2024-only level 1 character creation wizard for Foundry VTT v13 and the dnd5e system.",
-  "version": "1.10.11",
+  "version": "1.20.0",
   "authors": [
     {
       "name": "Created by DM Indy"
