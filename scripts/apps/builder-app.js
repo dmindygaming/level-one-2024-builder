@@ -12,6 +12,7 @@ import {
   CLASS_STARTING_EQUIPMENT_PACKAGES_2024, CLASS_LEVEL1_SPELLS_2024, CLASS_CANTRIPS_2024,
   BACKGROUND_SKILLS_2024, BACKGROUND_ABILITIES_2024, ORIGIN_FEAT_NAMES_2024, ORIGIN_FEAT_ALIASES_2024,
   BACKGROUND_ORIGIN_FEATS_2024, MAGIC_INITIATE_SOURCES_2024, BACKGROUND_TOOLS_2024, TOOL_KEY_ALIASES_2024,
+  SKILLED_TOOL_OPTIONS_2024,
   SKILL_LABELS, DEFAULT_LANGUAGE_CHOICE_COUNT, DEFAULT_BASE_LANGUAGE
 } from "../data/constants.js";
 import { getGuiTheme, getThemeInlineStyle, applyThemeToWindow, themedDialogHtml, themedDialogOptions } from "../core/gui-theme.js";
@@ -37,6 +38,16 @@ export class LevelOne2024Builder extends Application {
     this.cache = { items: [], species: [], backgrounds: [], classes: [], spells: [], weapons: [], equipment: [], feats: [], invocations: [] };
     this.originFeatOptionsLoaded = false;
     this.originFeatOptionsLoading = null;
+    // v1.20.3: tracks which <details class="l12024b-collapsible"> sections the
+    // player has manually closed (Cantrips, Level 1 Spells, Pact of the Tome,
+    // etc). This lives on the application instance, not this.build, because
+    // it's pure UI state - it must survive this.render() (every spell pick
+    // re-renders the whole form) without being written into the character
+    // data or persisted between builder sessions. Without this, every section
+    // was hard-coded "open" in the template, so collapsing one to reduce
+    // clutter while working through a long list only lasted until the next
+    // click, when the whole step re-rendered back to fully expanded.
+    this.collapsedSections = new Set();
     const initialMethod = getAbilityMethods()[0];
     const initialScores = initialMethod.type === "array" ? [...initialMethod.scores] : [...STANDARD_ARRAY];
     this.build = {
@@ -84,6 +95,11 @@ export class LevelOne2024Builder extends Application {
       equipmentChoiceSelections: {},
       originFeatUuids: [],
       humanSkillChoice: "",
+      // v1.20.3: the Skilled origin feat ("proficiency in any combination of
+      // three skills or tools of your choice") - see _skilledFeatData() and
+      // the "Skilled Proficiencies" step. Each entry is "skill:<key>" or
+      // "tool:<name>" so the combined skill/tool picker can tell them apart.
+      skilledChoiceKeys: [],
       languageChoices: [],
       searches: {
         species: "",
@@ -141,9 +157,7 @@ export class LevelOne2024Builder extends Application {
     // step data must be available immediately after a species/background/class
     // is selected.
     const selectedWeaponMasteries = await this._selectedWeaponMasteryDetails();
-    const cantripOptions = await this._cantripOptions();
     const selectedCantrips = await this._selectedSpellDetails(this.build.cantripUuids);
-    const level1SpellOptions = await this._levelOneSpellOptions();
     const selectedLevel1Spells = await this._selectedSpellDetails(this.build.spellUuids);
     const startingEquipmentData = await this._startingEquipmentData();
     const invocationData = await this._invocationData();
@@ -156,6 +170,7 @@ export class LevelOne2024Builder extends Application {
     const needsHumanChoices = currentStep === "Human Choices" || isReview;
     const originFeatData = needsHumanChoices ? await this._originFeatData() : this._emptyOriginFeatData();
     const humanSkillData = this._humanSkillData();
+    const skilledFeatData = this._skilledFeatData();
     const abilityMethods = getAbilityMethods();
     const selectedAbilityMethod = getAbilityMethod(this.build.abilityMethod);
     const pointBuyRules = this._pointBuyRules();
@@ -195,9 +210,7 @@ export class LevelOne2024Builder extends Application {
       weaponMasteryPrompt: classPrompt?.masteries ?? null,
       selectedWeaponMasteries,
       spellPrompt,
-      cantripOptions,
       selectedCantrips,
-      level1SpellOptions,
       selectedLevel1Spells,
       startingEquipmentData,
       selectedEquipment,
@@ -209,6 +222,7 @@ export class LevelOne2024Builder extends Application {
       magicInitiateData,
       originFeatData,
       humanSkillData,
+      skilledFeatData,
       tieflingLegacyData: this._tieflingLegacyData(),
       speciesChoiceData: this._speciesChoiceData(),
       languagePromptCount: DEFAULT_LANGUAGE_CHOICE_COUNT,
@@ -222,8 +236,23 @@ export class LevelOne2024Builder extends Application {
       canCreate: game.user.isGM || game.settings.get(MODULE_ID, "playersCanCreateActors"),
       configuredFolderName: this._configuredFolderName(),
       sourcePackSummary: this._sourcePackSummary(),
-      searchTerms: this.build.searches ?? {}
+      searchTerms: this.build.searches ?? {},
+      sectionsOpen: this._collapsibleSectionFlags()
     };
+  }
+
+  /**
+   * v1.20.3: whether each <details class="l12024b-collapsible"> section
+   * (Eldritch Invocations, Cantrips, Level 1 Spells, Magic Initiate, Pact of
+   * the Tome) should render open or collapsed. Backed by this.collapsedSections
+   * (see the constructor) rather than this.build, since this is UI state that
+   * must survive this.render() without becoming part of the character data.
+   */
+  _collapsibleSectionFlags() {
+    const keys = ["eldritchInvocations", "cantrips", "level1Spells", "magicInitiate", "pactOfTheTome"];
+    const flags = {};
+    for (const key of keys) flags[key] = !this.collapsedSections.has(key);
+    return flags;
   }
 
   activateListeners(html) {
@@ -243,6 +272,17 @@ export class LevelOne2024Builder extends Application {
     html.find("[data-action='browserPick']").on("click", ev => this._pickFromDnd5eBrowser(ev.currentTarget.dataset.kind));
     html.find("[data-action='browserPickMasteries']").on("click", ev => this._pickWeaponMasteriesFromDnd5eBrowser());
     html.find("[data-step]").on("click", ev => { this.step = Number(ev.currentTarget.dataset.step); this.render(); });
+    // v1.20.3: remember collapsed/expanded state per section across the
+    // this.render() calls that follow every spell/item pick (see
+    // this.collapsedSections and _collapsibleSectionFlags above). This only
+    // records state - it must not call this.render() itself, or every
+    // collapse/expand click would redundantly re-render the whole step.
+    html.find("details.l12024b-collapsible[data-section]").on("toggle", ev => {
+      const section = ev.currentTarget.dataset.section;
+      if (!section) return;
+      if (ev.currentTarget.open) this.collapsedSections.delete(section);
+      else this.collapsedSections.add(section);
+    });
     html.find("input[name='name']").on("change", ev => { this.build.name = ev.currentTarget.value; });
     html.find("input[name='actorMode']").on("change", ev => this._setActorMode(ev.currentTarget.value));
     html.find("select[name='selectedActorId']").on("change", ev => this._setSelectedActor(ev.currentTarget.value));
@@ -256,18 +296,17 @@ export class LevelOne2024Builder extends Application {
     html.find("select[name='backgroundUuid']").on("change", ev => this._selectItemOnly("background", ev.currentTarget.value));
     html.find("select[name='classUuid']").on("change", ev => { this.build.classUuid = ev.currentTarget.value; this.build.className = ""; this.build.skillChoices = []; this.build.weaponMasteryUuids = []; this.build.cantripUuids = []; this.build.spellUuids = []; this.build.tomeCantripUuids = []; this.build.tomeRitualSpellUuids = []; this.build.invocationUuids = []; this.build.divineOrder = ""; this.build.primalOrder = ""; this.build.equipmentUuids = []; this.build.equipmentChoiceSelections = {}; this.render(); });
     html.find("input[data-skill]").on("change", ev => this._toggleSkill(ev));
-    html.find("input[data-spell]").on("change", ev => this._toggleSpell(ev));
-    html.find("[data-action='chooseCantrip']").on("click", ev => this._chooseCantrip(ev.currentTarget.dataset.uuid));
+    html.find("[data-action='browseCantrips']").on("click", () => this._browseCantrips());
     html.find("[data-action='removeCantrip']").on("click", ev => this._removeCantrip(ev.currentTarget.dataset.uuid));
-    html.find("[data-action='chooseSpell']").on("click", ev => this._chooseSpell(ev.currentTarget.dataset.uuid));
+    html.find("[data-action='browseLevelOneSpells']").on("click", () => this._browseLevelOneSpells());
     html.find("[data-action='removeSpell']").on("click", ev => this._removeSpell(ev.currentTarget.dataset.uuid));
-    html.find("[data-action='chooseTomeCantrip']").on("click", ev => this._chooseTomeCantrip(ev.currentTarget.dataset.uuid));
+    html.find("[data-action='browseTomeCantrips']").on("click", () => this._browseTomeCantrips());
     html.find("[data-action='removeTomeCantrip']").on("click", ev => this._removeTomeCantrip(ev.currentTarget.dataset.uuid));
-    html.find("[data-action='chooseTomeRitualSpell']").on("click", ev => this._chooseTomeRitualSpell(ev.currentTarget.dataset.uuid));
+    html.find("[data-action='browseTomeRitualSpells']").on("click", () => this._browseTomeRitualSpells());
     html.find("[data-action='removeTomeRitualSpell']").on("click", ev => this._removeTomeRitualSpell(ev.currentTarget.dataset.uuid));
-    html.find("[data-action='chooseMagicInitiateCantrip']").on("click", ev => this._chooseMagicInitiateCantrip(ev.currentTarget.dataset.uuid));
+    html.find("[data-action='browseMagicInitiateCantrips']").on("click", () => this._browseMagicInitiateCantrips());
     html.find("[data-action='removeMagicInitiateCantrip']").on("click", ev => this._removeMagicInitiateCantrip(ev.currentTarget.dataset.uuid));
-    html.find("[data-action='chooseMagicInitiateSpell']").on("click", ev => this._chooseMagicInitiateSpell(ev.currentTarget.dataset.uuid));
+    html.find("[data-action='browseMagicInitiateSpell']").on("click", () => this._browseMagicInitiateSpell());
     html.find("[data-action='removeMagicInitiateSpell']").on("click", () => this._removeMagicInitiateSpell());
     html.find("[data-action='chooseInvocation']").on("click", ev => this._chooseInvocation(ev.currentTarget.dataset.uuid));
     html.find("[data-action='removeInvocation']").on("click", ev => this._removeInvocation(ev.currentTarget.dataset.uuid));
@@ -278,6 +317,7 @@ export class LevelOne2024Builder extends Application {
     html.find("[data-action='chooseOriginFeat']").on("click", ev => this._chooseOriginFeat(ev.currentTarget.dataset.uuid));
     html.find("[data-action='removeOriginFeat']").on("click", ev => this._removeOriginFeat(ev.currentTarget.dataset.uuid));
     html.find("input[name='humanSkillChoice']").on("change", ev => this._setHumanSkillChoice(ev.currentTarget.value));
+    html.find("input[data-skilled-choice]").on("change", ev => this._toggleSkilledChoice(ev));
     html.find("input[name='tieflingLegacy']").on("change", ev => this._setTieflingLegacy(ev.currentTarget.value));
     html.find("input[name='speciesChoice']").on("change", ev => this._setSpeciesChoice(ev.currentTarget.value));
     html.find("input[data-language]").on("change", ev => this._toggleLanguage(ev));
@@ -358,8 +398,38 @@ export class LevelOne2024Builder extends Application {
     // actually selected Human. Non-human characters should never see that step
     // in the navigation or as a pass-through page.
     if (this._isHumanSpecies()) steps.push("Human Choices");
+    // v1.20.3: the Skilled origin feat ("proficiency in any combination of
+    // three skills or tools of your choice") needs its own step for the same
+    // reason Fighting Style/Divine Order/Primal Order do - this builder
+    // suppresses dnd5e's native Advancement Manager for every origin feat it
+    // imports (so a native popup never interrupts the wizard), which also
+    // means a feat with its own required choice never gets a chance to ask
+    // for it unless the builder asks instead. Checked after both Background
+    // (which auto-grants Skilled for Charlatan/Noble/Scribe) and Human
+    // Choices (where a Human player can choose Skilled as their one origin
+    // feat), so by the time this step can show up the choice is already known
+    // either way.
+    if (this._isSkilledFeatActive()) steps.push("Skilled Proficiencies");
     steps.push("Class", "Class Choices", "Starting Equipment", "Spells", "Languages", "Review");
     return steps;
+  }
+
+  /**
+   * v1.20.3: true once the character is getting the Skilled origin feat,
+   * whether that's auto-granted by their background (Charlatan, Noble,
+   * Scribe) or chosen as their Human origin feat. Deliberately synchronous -
+   * _steps() calls this on every render, and both background and origin-feat
+   * option data are already loaded into this.cache by the time either of
+   * those selections can have been made.
+   */
+  _isSkilledFeatActive() {
+    const mappedBackgroundFeat = this._backgroundOriginFeatName();
+    if (mappedBackgroundFeat && this._originFeatSlugFromName(mappedBackgroundFeat) === "skilled") return true;
+    for (const uuid of this.build.originFeatUuids ?? []) {
+      const cached = (this.cache.feats ?? []).find(f => f.uuid === uuid) ?? (this.cache.items ?? []).find(i => i.uuid === uuid);
+      if (cached?.name && this._originFeatSlugFromName(cached.name) === "skilled") return true;
+    }
+    return false;
   }
 
   _availableTargetActors() {
@@ -690,6 +760,103 @@ export class LevelOne2024Builder extends Application {
     });
   }
 
+  // The spell-related steps used to render every eligible spell as an inline
+  // checkbox row directly in the wizard, which made the "Spells" step grow to
+  // dozens or hundreds of rows for classes with large spell lists. The dnd5e
+  // system already ships a proper Compendium Browser with its own search,
+  // scrolling, and (for 2024-rules spells) an authoritative "spelllist" filter
+  // backed by the system's spell list registry - the same data source the
+  // system's own level-up tools use to know which spells belong to which
+  // class. Opening that browser, pre-locked to the right spell level and class
+  // list, gives players the correct options in a proper searchable window
+  // instead of a long embedded list.
+  _classSpellListFilterValue(classKey) {
+    const key = String(classKey ?? "").trim().toLowerCase();
+    if (!key) return null;
+    try {
+      const registry = globalThis.dnd5e?.registry ?? game.dnd5e?.registry;
+      const list = registry?.spellLists?.forType?.("class", key);
+      if (list?.identifiers?.size) return { [`class:${key}`]: 1 };
+    } catch (err) {
+      console.warn(`${MODULE_ID} | Could not resolve the "${key}" spell list from the dnd5e registry`, err);
+    }
+    return null;
+  }
+
+  /**
+   * Open the dnd5e Compendium Browser's Spells tab, locked to a spell level
+   * range and (when resolvable) a specific class spell list, and let the
+   * player pick an exact number of spells.
+   */
+  async _openSpellCompendiumBrowser({ hint, levelMin = null, levelMax = null, classKey = null, ritualOnly = false, min = 1, max = 1 } = {}) {
+    const Browser = this._dnd5eCompendiumBrowserClass();
+    if (!Browser?.select) {
+      ui.notifications.error("The dnd5e Compendium Browser API was not found. Make sure the dnd5e system is updated and active.");
+      return null;
+    }
+
+    const additional = {};
+    if (Number.isFinite(levelMin) || Number.isFinite(levelMax)) {
+      additional.level = {};
+      if (Number.isFinite(levelMin)) additional.level.min = levelMin;
+      if (Number.isFinite(levelMax)) additional.level.max = levelMax;
+    }
+    const spellListFilter = classKey ? this._classSpellListFilterValue(classKey) : null;
+    if (spellListFilter) additional.spelllist = spellListFilter;
+    if (ritualOnly) additional.properties = { ritual: 1 };
+
+    const types = new Set(["spell"]);
+    let selected = null;
+    try {
+      selected = await Browser.select({
+        tab: "spells",
+        hint,
+        filters: {
+          locked: { documentClass: "Item", types, exclusive: true, additional },
+          initial: { documentClass: "Item", types }
+        },
+        selection: { min, max }
+      }, { force: true });
+    } catch (err) {
+      console.error(`${MODULE_ID} | dnd5e Compendium Browser spell selection failed`, err);
+      ui.notifications.error(`Could not open the dnd5e Compendium Browser: ${err.message}`);
+      return null;
+    }
+
+    if (!selected?.size) return null;
+    return [...selected];
+  }
+
+  async _browseCantrips() {
+    const required = this._selectedClassPrompt()?.spells?.cantrips ?? 0;
+    if (!required) return;
+    const picked = await this._openSpellCompendiumBrowser({
+      hint: `Choose exactly ${required} cantrip${required === 1 ? "" : "s"} from this class's 2024 cantrip list.`,
+      levelMin: 0, levelMax: 0,
+      classKey: this._selectedClassKey(),
+      min: required, max: required
+    });
+    if (!picked) return;
+    this.build.cantripUuids = picked;
+    if (await this._maybePromptStepComplete("Spells")) return;
+    this.render();
+  }
+
+  async _browseLevelOneSpells() {
+    const required = this._selectedClassPrompt()?.spells?.level1 ?? 0;
+    if (!required) return;
+    const picked = await this._openSpellCompendiumBrowser({
+      hint: `Choose exactly ${required} level 1 spell${required === 1 ? "" : "s"} from this class's 2024 level 1 spell list.`,
+      levelMin: 1, levelMax: 1,
+      classKey: this._selectedClassKey(),
+      min: required, max: required
+    });
+    if (!picked) return;
+    this.build.spellUuids = picked;
+    if (await this._maybePromptStepComplete("Spells")) return;
+    this.render();
+  }
+
   async _ensureSelectedBackgroundState() {
     if (!this.build.backgroundUuid) return;
 
@@ -886,48 +1053,8 @@ export class LevelOne2024Builder extends Application {
       }));
   }
 
-  async _cantripOptions() {
-    return this._spellOptionsForLevel(0, this.build.cantripUuids);
-  }
-
-  async _levelOneSpellOptions() {
-    return this._spellOptionsForLevel(1, this.build.spellUuids);
-  }
-
-  async _chooseCantrip(uuid) {
-    if (!uuid) return;
-    const required = this._selectedClassPrompt()?.spells?.cantrips ?? 0;
-    if (this.build.cantripUuids.includes(uuid)) return;
-    if (required && this.build.cantripUuids.length >= required) {
-      return ui.notifications.warn(`You already chose ${required} cantrip${required === 1 ? "" : "s"}. Remove one before choosing another.`);
-    }
-    this.build.cantripUuids.push(uuid);
-    if (await this._maybePromptStepComplete("Spells")) return;
-    this.render();
-  }
-
   async _removeCantrip(uuid) {
     this.build.cantripUuids = (this.build.cantripUuids ?? []).filter(v => v !== uuid);
-    this.render();
-  }
-
-  _toggleSpell(ev) {
-    this._toggleArrayValue(this.build.spellUuids, ev.currentTarget.value, ev.currentTarget.checked);
-    this.render();
-  }
-
-  async _chooseSpell(uuid) {
-    if (!uuid) return;
-    const required = this._selectedClassPrompt()?.spells?.level1 ?? 0;
-    if (this.build.spellUuids.includes(uuid)) return;
-    if (required && this.build.spellUuids.length >= required) {
-      return ui.notifications.warn(`You already chose ${required} level 1 spell${required === 1 ? "" : "s"}. Remove one before choosing another.`);
-    }
-
-    this.build.spellUuids.push(uuid);
-    const doc = await this._safeFromUuid(uuid);
-    if (await this._maybePromptStepComplete("Spells")) return;
-    ui.notifications.info(`Selected spell: ${doc?.name ?? "Level 1 spell"}`);
     this.render();
   }
 
@@ -1004,12 +1131,15 @@ export class LevelOne2024Builder extends Application {
     };
   }
 
-  async _chooseTomeCantrip(uuid) {
-    if (!uuid) return;
+  async _browseTomeCantrips() {
     if (!(await this._hasPactOfTheTome())) return ui.notifications.warn("Pact of the Tome has not been selected.");
-    if (this.build.tomeCantripUuids.includes(uuid)) return;
-    if (this.build.tomeCantripUuids.length >= 3) return ui.notifications.warn("Pact of the Tome already has 3 cantrips selected.");
-    this.build.tomeCantripUuids.push(uuid);
+    const picked = await this._openSpellCompendiumBrowser({
+      hint: "Pact of the Tome: choose exactly 3 cantrips from any class's spell list.",
+      levelMin: 0, levelMax: 0,
+      min: 3, max: 3
+    });
+    if (!picked) return;
+    this.build.tomeCantripUuids = picked;
     if (await this._maybePromptStepComplete("Spells")) return;
     this.render();
   }
@@ -1019,12 +1149,16 @@ export class LevelOne2024Builder extends Application {
     this.render();
   }
 
-  async _chooseTomeRitualSpell(uuid) {
-    if (!uuid) return;
+  async _browseTomeRitualSpells() {
     if (!(await this._hasPactOfTheTome())) return ui.notifications.warn("Pact of the Tome has not been selected.");
-    if (this.build.tomeRitualSpellUuids.includes(uuid)) return;
-    if (this.build.tomeRitualSpellUuids.length >= 2) return ui.notifications.warn("Pact of the Tome already has 2 ritual spells selected.");
-    this.build.tomeRitualSpellUuids.push(uuid);
+    const picked = await this._openSpellCompendiumBrowser({
+      hint: "Pact of the Tome: choose exactly 2 level 1 ritual spells from any class's spell list.",
+      levelMin: 1, levelMax: 1,
+      ritualOnly: true,
+      min: 2, max: 2
+    });
+    if (!picked) return;
+    this.build.tomeRitualSpellUuids = picked;
     if (await this._maybePromptStepComplete("Spells")) return;
     this.render();
   }
@@ -1081,13 +1215,17 @@ export class LevelOne2024Builder extends Application {
     };
   }
 
-  async _chooseMagicInitiateCantrip(uuid) {
-    if (!uuid) return;
+  async _browseMagicInitiateCantrips() {
     const data = await this._magicInitiateData();
     if (!data.active) return ui.notifications.warn("Magic Initiate has not been selected or granted by the background.");
-    if (this.build.magicInitiateCantripUuids.includes(uuid)) return;
-    if (this.build.magicInitiateCantripUuids.length >= 2) return ui.notifications.warn(`Magic Initiate (${data.sourceLabel}) already has 2 cantrips selected.`);
-    this.build.magicInitiateCantripUuids.push(uuid);
+    const picked = await this._openSpellCompendiumBrowser({
+      hint: `Magic Initiate (${data.sourceLabel}): choose exactly ${data.requiredCantrips} cantrips from the ${data.sourceLabel} spell list.`,
+      levelMin: 0, levelMax: 0,
+      classKey: data.sourceKey,
+      min: data.requiredCantrips, max: data.requiredCantrips
+    });
+    if (!picked) return;
+    this.build.magicInitiateCantripUuids = picked;
     if (await this._maybePromptStepComplete("Spells")) return;
     this.render();
   }
@@ -1097,11 +1235,17 @@ export class LevelOne2024Builder extends Application {
     this.render();
   }
 
-  async _chooseMagicInitiateSpell(uuid) {
-    if (!uuid) return;
+  async _browseMagicInitiateSpell() {
     const data = await this._magicInitiateData();
     if (!data.active) return ui.notifications.warn("Magic Initiate has not been selected or granted by the background.");
-    this.build.magicInitiateSpellUuid = uuid;
+    const picked = await this._openSpellCompendiumBrowser({
+      hint: `Magic Initiate (${data.sourceLabel}): choose exactly ${data.requiredSpells} level 1 spell from the ${data.sourceLabel} spell list.`,
+      levelMin: 1, levelMax: 1,
+      classKey: data.sourceKey,
+      min: data.requiredSpells, max: data.requiredSpells
+    });
+    if (!picked) return;
+    this.build.magicInitiateSpellUuid = picked[0] ?? "";
     if (await this._maybePromptStepComplete("Spells")) return;
     this.render();
   }
@@ -3355,6 +3499,13 @@ export class LevelOne2024Builder extends Application {
       }
     }
 
+    if (stepName === "Skilled Proficiencies") {
+      const data = this._skilledFeatData();
+      if ((this.build.skilledChoiceKeys ?? []).length !== data.required) {
+        return `Choose exactly ${data.required} skills or tools for the Skilled feat.`;
+      }
+    }
+
     if (stepName === "Class" && !this.build.classUuid) return "Choose a class.";
 
     if (stepName === "Class Choices") {
@@ -3672,6 +3823,60 @@ export class LevelOne2024Builder extends Application {
       selectedLabel: SKILL_LABELS[selected] ?? "None",
       options
     };
+  }
+
+  /**
+   * v1.20.3: option data for the "Skilled Proficiencies" step. Skilled grants
+   * proficiency in any combination of three skills or tools, so the picker
+   * offers both pools together; each key is prefixed "skill:"/"tool:" so a
+   * choice survives the round trip through this.build.skilledChoiceKeys and
+   * resolves unambiguously back to either SKILL_LABELS or
+   * SKILLED_TOOL_OPTIONS_2024 (a skill key and a tool key never collide, but
+   * the prefix also makes each option's value self-describing in the DOM).
+   */
+  _skilledFeatData() {
+    const required = 3;
+    const selectedKeys = new Set(Array.isArray(this.build.skilledChoiceKeys) ? this.build.skilledChoiceKeys : []);
+    const atMax = selectedKeys.size >= required;
+    const skillOptions = Object.entries(SKILL_LABELS)
+      .map(([key, label]) => ({ key: `skill:${key}`, label, checked: selectedKeys.has(`skill:${key}`) }))
+      .sort((a, b) => a.label.localeCompare(b.label))
+      .map(option => ({ ...option, disabled: !option.checked && atMax }));
+    const toolOptions = SKILLED_TOOL_OPTIONS_2024
+      .map(tool => ({ key: `tool:${tool.key}`, label: tool.label, checked: selectedKeys.has(`tool:${tool.key}`) }))
+      .map(option => ({ ...option, disabled: !option.checked && atMax }));
+    return {
+      active: this._isSkilledFeatActive(),
+      required,
+      selectedCount: selectedKeys.size,
+      skillOptions,
+      toolOptions,
+      selectedLabels: [...selectedKeys].map(key => this._skilledChoiceLabel(key))
+    };
+  }
+
+  _skilledChoiceLabel(key) {
+    if (key.startsWith("skill:")) return SKILL_LABELS[key.slice(6)] ?? key.slice(6);
+    if (key.startsWith("tool:")) {
+      const toolKey = key.slice(5);
+      return SKILLED_TOOL_OPTIONS_2024.find(t => t.key === toolKey)?.label ?? toolKey;
+    }
+    return key;
+  }
+
+  async _toggleSkilledChoice(ev) {
+    const checked = ev.currentTarget.checked;
+    const value = ev.currentTarget.value;
+    const required = 3;
+    if (!Array.isArray(this.build.skilledChoiceKeys)) this.build.skilledChoiceKeys = [];
+    if (checked && this.build.skilledChoiceKeys.length >= required && !this.build.skilledChoiceKeys.includes(value)) {
+      ui.notifications.warn(`Choose exactly ${required} skills or tools for Skilled.`);
+      ev.currentTarget.checked = false;
+      return;
+    }
+    this._toggleArrayValue(this.build.skilledChoiceKeys, value, checked);
+    if (await this._maybePromptStepComplete("Skilled Proficiencies")) return;
+    this.render();
   }
 
   _originFeatSlugFromName(name) {
@@ -4554,7 +4759,7 @@ export class LevelOne2024Builder extends Application {
 
   _toolUpdates(actor = null) {
     const updates = {};
-    const tools = this._backgroundToolNames();
+    const tools = new Set([...this._backgroundToolNames(), ...this._skilledChosenToolNames()]);
     const existingToolKeys = new Set(Object.keys(actor?.system?.tools ?? {}));
     const traitPath = actor?.system?.traits?.toolProf?.value;
     const traitValues = Array.isArray(traitPath) ? new Set(traitPath) : null;
@@ -4592,7 +4797,47 @@ export class LevelOne2024Builder extends Application {
     for (const skill of this._backgroundSkillKeys()) if (SKILL_LABELS[skill]) skills.add(skill);
     for (const skill of this.build.skillChoices ?? []) if (SKILL_LABELS[skill]) skills.add(skill);
     if (this._isHumanSpecies() && SKILL_LABELS[this.build.humanSkillChoice]) skills.add(this.build.humanSkillChoice);
+    for (const skill of this._skilledChosenSkillKeys()) skills.add(skill);
     return skills;
+  }
+
+  /**
+   * v1.20.3: the skill half of the Skilled origin feat's three picks
+   * (this.build.skilledChoiceKeys holds "skill:<key>"/"tool:<name>" entries
+   * together - see _skilledFeatData()). Folded into _allBuilderSkillKeys() so
+   * these proficiencies are applied by the same builder-owned
+   * _applyBuilderSkillProficiencies() pass as background/class/Human skills,
+   * rather than needing a separate actor.update() call of their own.
+   */
+  _skilledChosenSkillKeys() {
+    const keys = new Set();
+    for (const entry of this.build.skilledChoiceKeys ?? []) {
+      if (typeof entry === "string" && entry.startsWith("skill:")) {
+        const key = entry.slice(6);
+        if (SKILL_LABELS[key]) keys.add(key);
+      }
+    }
+    return keys;
+  }
+
+  /**
+   * v1.20.3: the tool half of the Skilled origin feat's three picks. Folded
+   * into _toolUpdates()'s tool-name source below, the same way background
+   * tool proficiencies already are, so both go through the same
+   * _candidateToolKeys()-based resolution onto the actor's system.tools.*
+   * fields (or the toolProf trait fallback for a tool the actor template
+   * hasn't materialized yet).
+   */
+  _skilledChosenToolNames() {
+    const names = new Set();
+    for (const entry of this.build.skilledChoiceKeys ?? []) {
+      if (typeof entry === "string" && entry.startsWith("tool:")) {
+        const toolKey = entry.slice(5);
+        const label = SKILLED_TOOL_OPTIONS_2024.find(t => t.key === toolKey)?.label;
+        names.add(label ?? toolKey);
+      }
+    }
+    return names;
   }
 
   _skillUpdates(actor = null) {
@@ -4731,6 +4976,13 @@ function suppressRenderedExternalBuilderPrompt(app, html) {
   setTimeout(() => app.close?.({ force: true }), 0);
 }
 
+// "renderApplication" only fires for apps still built on the legacy AppV1
+// framework. dnd5e has moved its AdvancementManager, CompendiumBrowser, and
+// most other windows this suppression logic targets onto ApplicationV2 (true
+// as far back as the 5.x releases this module still supports, and unchanged
+// in 6.0.x), where the generic render hook is "renderApplicationV2" instead.
+// Without this hook, suppression silently never saw those windows at all.
 Hooks.on("renderApplication", suppressRenderedExternalBuilderPrompt);
+Hooks.on("renderApplicationV2", suppressRenderedExternalBuilderPrompt);
 Hooks.on("renderDialog", suppressRenderedExternalBuilderPrompt);
 Hooks.on("renderDialogV2", suppressRenderedExternalBuilderPrompt);
