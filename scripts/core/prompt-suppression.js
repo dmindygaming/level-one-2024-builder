@@ -5,9 +5,11 @@ import { MODULE_ID } from "../data/constants.js";
  * call to suppressExternalBuilderPrompts() opens (or extends) a window for
  * one specific actor - the one the builder is actively importing items onto
  * - rather than a single global window. This matters because the render
- * hooks below (renderApplication/renderDialog/renderDialogV2) fire for every
- * window in the ENTIRE world, not just windows related to the character this
- * builder session is working on.
+ * hooks below (renderApplication/renderApplicationV2/renderDialog/
+ * renderDialogV2 - the first two cover legacy AppV1 and current AppV2 apps
+ * respectively, since dnd5e's AdvancementManager and CompendiumBrowser are
+ * AppV2) fire for every window in the ENTIRE world, not just windows related
+ * to the character this builder session is working on.
  *
  * A caller that cannot identify an actor yet (there shouldn't be any left,
  * but keep this safe) falls into the NO_ACTOR_KEY bucket, which
