@@ -2395,10 +2395,9 @@ export class LevelOne2024Builder extends Application {
   async _setLevelOneHitPoints(actor) {
     const classKey = this._selectedClassKey();
     const die = CLASS_HIT_DIE_2024[classKey];
-    if (!die) return;
     const con = Number(actor.system?.abilities?.con?.value ?? this.build.baseAbilities?.con ?? 10);
     const conMod = Math.floor((con - 10) / 2);
-    const startingHp = Math.max(1, die + conMod);
+    const handRolled = die ? Math.max(1, die + conMod) : null;
 
     // IMPORTANT: never write system.attributes.hp.max directly here. dnd5e's
     // character data model only derives hp.max from the class's HitPoints
@@ -2414,11 +2413,47 @@ export class LevelOne2024Builder extends Application {
     // it was created on the actor, so dnd5e now derives hp.max itself,
     // correctly, forever - all that's left to do is set the starting current
     // HP to match.
+    //
+    // By the time this runs, every level-1 item (species, background, origin
+    // feats, class features, etc.) is already on the actor, so dnd5e has
+    // already recomputed system.attributes.hp.max including any Active
+    // Effect bonus one of those grants - e.g. the 2024 "Tough" feat's +2 HP
+    // at level 1. Read that already-correct derived max directly instead of
+    // hand-rolling die + CON modifier, which silently ignored any such bonus
+    // and left starting HP below max whenever one applied. Live-confirmed:
+    // a Cleric (d8, CON 14) with Tough derives hp.max 12 (10 base + 2 from
+    // Tough), but the old hand-rolled value stayed at 10 - exactly the
+    // "character's health isn't full" bug. The hand-rolled value is kept
+    // only as a fallback for the unexpected case where max isn't derived yet.
+    const derivedMax = Number(actor.system?.attributes?.hp?.max);
+    const startingHp = Number.isFinite(derivedMax) && derivedMax > 0 ? derivedMax : handRolled;
+    if (!startingHp) return;
+
     await actor.update({
       "system.attributes.hp.value": startingHp,
       "system.attributes.hp.temp": 0,
       "system.attributes.hp.tempmax": 0
     });
+  }
+
+  /**
+   * dnd5e correctly DERIVES system.spells.spellN.max (and system.spells.pact.max)
+   * for a level-1 caster once their class item is on the actor, but the
+   * current, literal "slots available" value is separate stored source data
+   * that is never initialized to match - a freshly built level-1 caster ends
+   * up with the right number of slots shown, but 0 of them actually usable,
+   * mirroring the hp.value/hp.max split handled by _setLevelOneHitPoints just
+   * above. Live-confirmed on a level-1 Cleric: system.spells.spell1 came out
+   * {max: 2, value: 0}. Set every slot block's value to its own derived max.
+   */
+  async _setLevelOneSpellSlots(actor) {
+    const spells = actor.system?.spells ?? {};
+    const updates = {};
+    for (const [key, block] of Object.entries(spells)) {
+      const max = Number(block?.max ?? 0);
+      if (max > 0) updates[`system.spells.${key}.value`] = max;
+    }
+    if (Object.keys(updates).length) await actor.update(updates);
   }
 
   _setActorMode(mode) {
@@ -3705,6 +3740,7 @@ export class LevelOne2024Builder extends Application {
     await this._addPactOfTheTomeSpells(actor);
     await this._addMagicInitiateSpells(actor);
     await this._setLevelOneHitPoints(actor);
+    await this._setLevelOneSpellSlots(actor);
     await this._clearIncorrectStartingConditions(actor);
 
     // Re-apply proficiencies after item imports. Some dnd5e advancement and
@@ -4492,7 +4528,25 @@ export class LevelOne2024Builder extends Application {
     // classes (Bard, Ranger, Sorcerer, Warlock, Wizard's spellbook) don't set
     // that flag, so they are untouched and keep whatever the compendium item
     // already has.
+    //
+    // dnd5e 6.x removed the old system.preparation.{mode,prepared} object in
+    // favor of flat system.method ("spell"/"innate"/"atwill"/...) and
+    // system.prepared (an integer enum - 0 unprepared, 1 prepared, 2 always -
+    // per CONFIG.DND5E.spellPreparationStates). Writing the legacy
+    // preparation object here did nothing reliable: dnd5e's own
+    // #migratePreparation() back-compat shim only copies .mode/.prepared into
+    // method/prepared when the item's OWN serialized data doesn't already
+    // have those keys, and deletes the preparation object either way - so
+    // for most real compendium items (which already carry explicit
+    // method/prepared keys, e.g. from ddb-importer) this write was silently
+    // discarded. Live-confirmed: with the old code, a Cleric's chosen
+    // 1st-level spell (Alarm) landed on the actor with prepared:0 ("Not
+    // Prepared") even though preparesFromList was true, while another spell
+    // whose source data happened to omit those keys came out prepared by
+    // accident. Write the real fields directly instead, so the result no
+    // longer depends on how the source compendium item happens to be shaped.
     const preparesFromList = Boolean(this._selectedClassPrompt()?.spells?.prepared);
+    const preparedValue = CONFIG.DND5E?.spellPreparationStates?.prepared?.value ?? 1;
 
     for (const uuid of this.build.spellUuids ?? []) {
       const doc = await fromUuid(uuid);
@@ -4503,7 +4557,8 @@ export class LevelOne2024Builder extends Application {
       const data = doc.toObject();
       if (preparesFromList) {
         data.system ??= {};
-        data.system.preparation = { ...(data.system.preparation ?? {}), mode: "prepared", prepared: true };
+        data.system.method = "spell";
+        data.system.prepared = preparedValue;
       }
       await this._createItemsWithoutAdvancementPrompts(actor, [data]);
     }
@@ -4540,14 +4595,21 @@ export class LevelOne2024Builder extends Application {
     };
 
     // The 2024 Magic Initiate level-1 spell should remain visible on the actor
-    // even when it overlaps with the class spell list.  Mark it as always
-    // prepared so dnd5e does not treat it as an unselected class preparation.
+    // even when it overlaps with the class spell list. Mark it as cast via
+    // the "innate" method so dnd5e does not treat it as an unselected class
+    // preparation.
     if (Number(level) === 1) {
       // Do not let the actor sheet classify the Magic Initiate spell as a
       // Warlock Pact Magic spell just because the character has Pact Magic.
       // Innate keeps it separate from the class spell picks while still
       // leaving the spell on the actor for manual slot/free-use handling.
-      updates.system.preparation = { mode: "innate", prepared: true };
+      //
+      // dnd5e 6.x has no system.preparation object anymore (see the long
+      // comment in _addSelectedLevelOneSpells for the full story) - the
+      // real field is system.method. CONFIG.DND5E.spellcasting.innate has
+      // no "prepares" flag, so there's no separate prepared/unprepared state
+      // to set for an innate spell; only method needs to change.
+      updates.system.method = "innate";
     }
     return updates;
   }
@@ -4582,7 +4644,7 @@ export class LevelOne2024Builder extends Application {
       // (the branch below) should get that treatment.
       if (existing) {
         const tagOnlyUpdates = foundry.utils.deepClone(updates);
-        delete tagOnlyUpdates.system?.preparation;
+        delete tagOnlyUpdates.system?.method;
         await existing.update(foundry.utils.mergeObject(tagOnlyUpdates, {
           "system.source.custom": existing.system?.source?.custom || `Magic Initiate (${dataState.sourceLabel})`
         }, { inplace: false }));
