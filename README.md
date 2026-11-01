@@ -1,6 +1,16 @@
 # Level One 2024 Character Builder
 
-Current version: v1.20.8
+Current version: v1.20.9
+
+## v1.20.9: The class spell lists are now actually accurate, instead of being turned off
+
+**Reported by a live user**, pushing back on v1.20.8: turning the class filter off by default avoided hiding real spells, but it didn't make the class spell lists accurate - correct feedback. Went back to dnd5e's own source code (`module/data/item/spell.mjs` in the dnd5e system repository) to see exactly what the "spelllist" filter reads, rather than continuing to guess at symptoms.
+
+Confirmed directly from that source: the filter always resolves to checking a spell's `system.identifier` field against `list.identifiers` - a property read live, every time, from the exact `SpellList` object `dnd5e.registry.spellLists.forType()` returns. There is no way to hand the Compendium Browser a different accepted-spell set through its own options; `list.identifiers` is the only input it ever reads, and dnd5e builds that property (`registry.mjs`) by resolving every spell UUID on a class's registered list through `fromUuidSync`, which needs the full compendium document already loaded in memory - confirmed unreliable in v1.20.7.
+
+The actual fix: `list.uuids` (also from `registry.mjs`) is a *different* property - the authoritative set of UUIDs genuinely registered to a class, built directly from the spell-list journal page's own stored data, with no document resolution involved at all, so it's never wrong. Every one of those UUIDs only needs one field to determine its identifier - `system.identifier` (with the same name-based fallback dnd5e itself uses when that field is blank) - and that field is available the moment a compendium is *indexed*, with no document-loading or permission dependency. So v1.20.9 builds the accepted-identifier set itself, straight from each relevant pack's index, and installs it as that `SpellList` object's own `identifiers` (combined with whatever dnd5e's own version already got right, so nothing is lost) right before the Compendium Browser opens. Since dnd5e reads `list.identifiers` live wherever it's used - not just from this module's own calls - this fixes the class list everywhere, not only in this wizard.
+
+With the class list itself corrected, the filter goes back to being pre-checked by default, same as v1.20.6 and earlier: normal play only shows this class's real spells again. It's still not locked, so the one case this genuinely can't fix - a spell nobody has ever added to a class's list at all - can still be found by unticking it manually.
 
 ## v1.20.8: The class spell-list filter no longer hides anything by default - it's opt-in now, not opt-out
 
