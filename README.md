@@ -1,6 +1,16 @@
 # Level One 2024 Character Builder
 
-Current version: v1.20.6
+Current version: v1.20.7
+
+## v1.20.7: Found and fixed the actual reason a correctly-registered spell (e.g. "Toll the Dead") could still fail the class spell-list filter
+
+**Reported by a live user**: v1.20.6 let the class spell-list filter be unticked, but that wasn't the real fix for every case - specifically "Toll the Dead", which is genuinely registered to the Cleric/Warlock/Wizard spell lists, correctly leveled, and correctly tagged on its own item sheet, was still being rejected by that filter even when it wasn't locked, because the filter is pre-checked by default and this spell failed it outright rather than simply being absent from an unregistered compendium.
+
+Rather than guess again, built a short script for the user to run in their browser console against their live world and got back real data. It showed, for every copy of "Toll the Dead" across their installed packs, the exact raw `system.identifier` field dnd5e's filter checks (`"toll-the-dead"` - correct, matching what the spell's own name would format to) and, separately, whether dnd5e's own spell-list registry considered that identifier accepted for Cleric/Warlock/Wizard. One copy was directly confirmed registered to all three classes by its exact item UUID (`dnd5e.registry.spellLists.forSpell(uuid)` correctly returned `['Cleric', 'Warlock', 'Wizard']`) - yet the registry's own accepted-identifier set for every one of those three classes did not contain `"toll-the-dead"` at all.
+
+That contradiction pointed at dnd5e's own registry code (`registry.mjs`): a class's accepted-identifier set is built by resolving every spell UUID on that class's registered spell-list page through `fromUuidSync` - which only succeeds for a compendium document already fully *loaded* into memory, not merely *indexed* (indexing happens automatically on world load; loading a specific item's full document does not, until something actually opens it). A spell can be genuinely registered to a class by UUID and still get silently dropped from that class's accepted-identifier set if nothing has triggered its document to fully load yet - exactly what the console data showed happening here, independent of this module or of the CPR/GPS automation packs investigated in v1.20.4.
+
+Fixed by having the builder force every spell on a class's registered spell list to fully load (via the always-reliable async `fromUuid`, not the synchronous version dnd5e's own filter depends on) right before opening the Compendium Browser with that class's filter active. This warms the exact cache dnd5e's filter reads from, so spells like this one show up correctly-filtered on the first try instead of requiring the class filter to be manually unticked. The ability to untick that filter from v1.20.6 stays in place as a fallback, now specifically for the one case it's actually needed: a spell that was never added to a class's spell list at all, which still requires a GM to add.
 
 ## v1.20.6: Spells from a newly-added compendium can be missing from the class spell list filter - now you can turn that filter off instead of being stuck
 
