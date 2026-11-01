@@ -26,6 +26,7 @@ import {
   sourceTypeSelectionMode, automaticPackIds
 } from "../core/source-types.js";
 import { resolveFeaturesByName, scanConfiguredPacks } from "../core/compendium-resolver.js";
+import { blockAutomationPacksFromCompendiumBrowser } from "../core/pack-source-guard.js";
 import { getOverride, OVERRIDE_CONTEXT } from "../core/overrides.js";
 import { configuredCharacterFolderId } from "./folder-settings.js";
 import { LevelOne2024SourcebookSettings } from "./sourcebook-settings.js";
@@ -965,7 +966,9 @@ export class LevelOne2024Builder extends Application {
       || haystack.includes("midi")
       || haystack.includes("dae")
       || haystack.includes("automation")
-      || haystack.includes("rider");
+      || haystack.includes("rider")
+      || haystack.includes("cpr")
+      || haystack.includes("gps");
   }
 
   _spellSourceScore(spell) {
@@ -1269,7 +1272,9 @@ export class LevelOne2024Builder extends Application {
       || h.includes("dae")
       || h.includes("automation")
       || h.includes("rider")
-      || h.includes("plutonium");
+      || h.includes("plutonium")
+      || h.includes("cpr")
+      || h.includes("gps");
   }
 
   _isInvocationCandidate(item) {
@@ -1402,7 +1407,7 @@ export class LevelOne2024Builder extends Application {
     const source = this._itemSourceLabel(item).toLowerCase();
     const pack = String(item.pack ?? item.packName ?? "").toLowerCase();
     const h = `${source} ${pack} ${item.name}`.toLowerCase();
-    if (h.includes("cauldron") || h.includes("gambit") || h.includes("premade") || h.includes("automation") || h.includes("rider") || h.includes("midi") || h.includes("dae")) return -100;
+    if (h.includes("cauldron") || h.includes("gambit") || h.includes("premade") || h.includes("automation") || h.includes("rider") || h.includes("midi") || h.includes("dae") || h.includes("cpr") || h.includes("gps")) return -100;
     if (h.includes("phb 2024") || h.includes("players handbook") || h.includes("player's handbook") || h.includes("dnd-players-handbook")) return 100;
     if (h.includes("free rules") || h.includes("srd 5.2")) return 90;
     if (pack.startsWith("dnd5e.")) return 75;
@@ -1414,7 +1419,7 @@ export class LevelOne2024Builder extends Application {
     const metadata = pack?.metadata ?? {};
     const h = [item.name, item.pack, metadata.label, metadata.packageName, metadata.id]
       .filter(Boolean).join(" ").toLowerCase();
-    return h.includes("cauldron") || h.includes("plentiful resources") || h.includes("gambit") || h.includes("premade") || h.includes("automation") || h.includes("rider") || h.includes("midi") || h.includes("dae");
+    return h.includes("cauldron") || h.includes("plentiful resources") || h.includes("gambit") || h.includes("premade") || h.includes("automation") || h.includes("rider") || h.includes("midi") || h.includes("dae") || h.includes("cpr") || h.includes("gps");
   }
 
   _equipmentIndexBySlug() {
@@ -2418,6 +2423,12 @@ export class LevelOne2024Builder extends Application {
   }
 
   async _loadOptions() {
+    // Keep automation/effects-only packs (e.g. "CPR"/Cauldron of Plentiful
+    // Resources, "GPS"/Gambit's Premades-style spell riders) out of dnd5e's
+    // own native "Browse Spell Compendium" window, which this module's own
+    // exclusion heuristics below cannot reach - see pack-source-guard.js.
+    await blockAutomationPacksFromCompendiumBrowser();
+
     const sourceSelections = parseSourceTypePackSetting(game.settings.get(MODULE_ID, "selectedPacksByContentType") || "");
     const packIdsByType = Object.fromEntries(SOURCE_TYPE_ORDER.map(key => [key, packIdsForSourceType(key, sourceSelections)]));
     const packTypeMembership = new Map();
@@ -2514,7 +2525,9 @@ export class LevelOne2024Builder extends Application {
           || haystack.includes("midi")
           || haystack.includes("dae")
           || haystack.includes("automation")
-          || haystack.includes("rider"));
+          || haystack.includes("rider")
+          || haystack.includes("cpr")
+          || haystack.includes("gps"));
       });
 
     for (const pack of packs) {
@@ -3929,7 +3942,7 @@ export class LevelOne2024Builder extends Application {
     if (h.includes("phb 2024") || h.includes("phb'24") || h.includes("players handbook") || h.includes("player's handbook") || h.includes("dnd-players-handbook")) return 100;
     if (h.includes("srd 5.2") || h.includes("free rules")) return 90;
     if (h.includes("dnd5e")) return 70;
-    if (h.includes("cauldron") || h.includes("gambit") || h.includes("premade") || h.includes("automation") || h.includes("rider")) return -100;
+    if (h.includes("cauldron") || h.includes("gambit") || h.includes("premade") || h.includes("automation") || h.includes("rider") || h.includes("cpr") || h.includes("gps")) return -100;
     return 25;
   }
 
