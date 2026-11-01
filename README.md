@@ -1,6 +1,14 @@
 # Level One 2024 Character Builder
 
-Current version: v1.20.9
+Current version: v1.21.0
+
+## v1.21.0: Fixed a bug in v1.20.9's own fix - confirmed installed, confirmed still not working, found why
+
+**Reported by a live user**: confirmed v1.20.9 installed and reloaded, and Toll the Dead was still missing from the Cleric cantrip list. Since v1.20.7, v1.20.8, and v1.20.9 were three genuinely different mechanisms (pre-loading documents, turning the filter off entirely, and patching dnd5e's registry directly) and all three produced the identical symptom, the most likely explanation stopped being "another wrong theory about dnd5e" and became "the fix code itself has a bug." Confirmed the installed version was in fact 1.20.9, so it wasn't a stale install either - the new code was running and still not working.
+
+Found it: v1.20.9's fix read each spell's real identifier back out of its compendium's index by first splitting each spell-list UUID into its pack and document id using `foundry.utils.parseUuid()` - a Foundry *core* API, not part of dnd5e's own open-source, checkable code. Its exact return shape was never actually verified against this app's assumptions, unlike everything pulled from dnd5e's own source. If that API doesn't return a field literally named `id` the way the code assumed, every single spell UUID in the loop would silently skip itself, and the "corrected" identifier set would end up identical to the original, broken one - exactly matching what was reported.
+
+v1.21.0 removes that dependency entirely. Instead of parsing UUIDs apart, it uses only pieces already directly verified against this exact user's real world data in the console diagnostics earlier in this investigation: index every Item compendium, reconstruct each spell's UUID as the same plain string (`Compendium.<pack>.<id>`) that was already confirmed to correctly match dnd5e's own spell-list registration lookups, and check it with a plain Set.has() - no parsing, no unverified API assumptions. Everything else about the fix (reading the real identifier straight from the index, unioning with whatever dnd5e's own lookup already got right, installing it as the live property dnd5e itself reads) is unchanged from v1.20.9's approach, which was correct in principle - only the one unverified step is replaced.
 
 ## v1.20.9: The class spell lists are now actually accurate, instead of being turned off
 
