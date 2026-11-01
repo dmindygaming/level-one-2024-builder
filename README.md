@@ -1,6 +1,14 @@
 # Level One 2024 Character Builder
 
-Current version: v1.22.4
+Current version: v1.22.5
+
+## v1.22.5: Class selection now comes before Ability Scores Generation
+
+**Requested by a live user**: pick a class before assigning ability scores, not after, so the player knows what they're building for (which ability to prioritize, etc.) before placing their generated scores.
+
+Moved "Class" in the wizard's step order from its old spot (right before "Class Choices", near the end of the flow) to right after naming the character, before "Ability Scores Generation". "Class Choices" (class skills, Fighting Style, Divine/Primal Order, weapon masteries, Eldritch Invocations) deliberately stayed in its original spot, after Background: its class-skill picker hides skills your background already grants (`_classSkillOptions()`/`_backgroundSkillKeys()`), and that check only works if Background has already been chosen - moving it earlier too would have silently broken that overlap check and let a player double up on a skill without knowing it. New order: Actor → Name → **Class** → Ability Scores Generation → Species → Background → Background Ability Scores → [Human Choices] → [Skilled Proficiencies] → Class Choices → Starting Equipment → Spells → Languages → Review.
+
+This is a pure step-ordering change in `_steps()` - every step's own validation and rendering is keyed by name, not position, and nothing else in the builder reads step order by index, so there was no other code to touch. Verified live in the same world before shipping: simulated the new step list against a real builder instance in both a minimal state and a state with every conditional step active (Human species, a Skilled-granting background), and separately confirmed the background/class-skill overlap exclusion still works correctly with Class Choices in its unchanged position (Rogue + Charlatan: Deception and Sleight of Hand, both granted by Charlatan, are still correctly hidden from Rogue's own class skill choices).
 
 ## v1.22.4: Removed the redundant icon gallery from Species/Background/Class now that "Browse All Sources" does the same job
 
