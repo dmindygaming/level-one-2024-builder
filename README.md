@@ -1,6 +1,14 @@
 # Level One 2024 Character Builder
 
-Current version: v1.20.5
+Current version: v1.20.6
+
+## v1.20.6: Spells from a newly-added compendium can be missing from the class spell list filter - now you can turn that filter off instead of being stuck
+
+**Reported by a live user**: after installing a new spell compendium, its spells didn't show up when browsing Cantrips/Level 1 Spells for a class, even though the spells genuinely belong on that class's 2024 spell list. Confirmed the pack itself *was* visible in the Browse Spell Compendium window and its spells could be found by searching - they just never appeared once the wizard's class/level filter was applied.
+
+This isn't a bug in this module's own pack detection (that's what v1.20.4 and the "CPR"/"GPS" exclusion work was about) - it's a separate dnd5e system behavior. The Cantrips/Level 1 Spells/Magic Initiate steps filter the Compendium Browser by the class's *registered* spell list (`dnd5e.registry.spellLists`, the same data dnd5e's own level-up tools read from, managed under Configure Spell Lists). That registry is populated explicitly, generally by whatever compendium or GM action adds each spell to a class's list - it is not inferred from a spell's source book, name, or any other metadata. A spell from a brand-new compendium isn't on any class's registered list until something adds it there, so previously - since this module locked that filter and gave no way to turn it off - those spells were invisible with no indication why.
+
+Fixed by no longer locking the class spell-list filter: it's still pre-checked by default (so normal play still only shows this class's actual spells, same as before), but it can now be unticked right there in the Compendium Browser's own sidebar, which reveals every spell of the right level from your configured sources regardless of spell-list registration - including spells from a pack that isn't registered with dnd5e's spell list system yet. The in-wizard hint text now mentions this when a class filter is active. (Level range and the ritual-only restriction for Pact of the Tome still can't be turned off - those define what the step is actually for.) For a permanent fix instead of unchecking the filter every time, a GM can add the new compendium's spells to the class's list directly from Foundry's own Configure Spell Lists tool.
 
 ## v1.20.5: Fixed the disjointed "name on one line, source below it, big gap, then a full-width Remove button" layout on every spell/Remove list
 
