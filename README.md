@@ -1,6 +1,14 @@
 # Level One 2024 Character Builder
 
-Current version: v1.22.0
+Current version: v1.22.1
+
+## v1.22.1: v1.22.0's own fix didn't actually run on a real reload - fixed the race condition that caused it
+
+**Reported by a live user**: updated to v1.22.0, reloaded, and asked to have every affected class checked - not just Toll the Dead. Checked live, in the same world, with the real installed v1.22.0 code running: Cleric's registered list was still 109 spells, no Toll the Dead. v1.22.0's own fix hadn't actually run.
+
+Found it: `fixOfficialSpellListGaps()` is called from this module's `Hooks.once("ready")` handler, but it never waited for dnd5e to finish registering its own spell lists first - and confirmed, live, that dnd5e's spell-list registration can still be in progress at the exact moment "ready" fires, so the scan ran against an empty/partial registry and found nothing to add. Worse, the function marked itself "already ran" (a guard meant to make it safe to call more than once) before that scan even happened, so even the safety-net call built into this module's own dialog - meant to catch exactly this kind of timing gap - never got a real second chance; it saw "already ran" and skipped.
+
+dnd5e itself exposes `dnd5e.registry.ready`, a Promise that resolves once its own registries (including spell lists) have fully finished loading. v1.22.1 awaits that before scanning, and only marks itself "already ran" after that wait, so the one scan that happens is always against complete data. Confirmed live, in the same world: awaiting it and re-running the identical scan correctly added Toll the Dead (and 7 other spells) to Cleric, and 130 spells total across all 8 classes with a registered 2024 list - Bard, Cleric, Druid, Paladin, Ranger, Sorcerer, Warlock, Wizard.
 
 ## v1.22.0: Found the real root cause and fixed it for real - not just "Toll the Dead", every missing 2024 spell
 
