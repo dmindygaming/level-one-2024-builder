@@ -784,37 +784,80 @@ export class LevelOne2024Builder extends Application {
     return null;
   }
 
-  // v1.20.7 - verified against a user's live world (console diagnostic) that
-  // dnd5e's own SpellList#identifiers (registry.mjs) is built by resolving
-  // every spell UUID on the class's registered spell-list journal page
-  // through fromUuidSync. fromUuidSync only succeeds for a compendium
-  // document that has already been fully *loaded* into memory this session,
-  // not merely *indexed* (indexing happens automatically on world load,
-  // loading does not). A spell can therefore be genuinely registered to a
-  // class - dnd5e.registry.spellLists.forSpell(uuid) correctly reports the
-  // class as a member - while still being silently dropped from that same
-  // class's `identifiers` set, which is what the Compendium Browser's
-  // "spelllist" filter actually checks against. This is exactly what was
-  // confirmed for "Toll the Dead": registered to Cleric/Warlock/Wizard by
-  // forSpell(), correctly leveled and tagged, yet list.identifiers.has(...)
-  // was false for all three because its copy's pack hadn't had its document
-  // fully loaded yet.
+  // v1.20.9 - the actual fix, not another workaround.
   //
-  // The fix: before asking the Compendium Browser to filter by a class's
-  // spell list, force every spell on that list to load via the async (and
-  // always-reliable) fromUuid. That warms the exact same cache fromUuidSync
-  // reads from, so dnd5e's own filter sees the whole list instead of
-  // whichever spells happened to already be loaded elsewhere.
-  async _warmSpellListRegistryCache(classKey) {
+  // Read directly from dnd5e's own source (module/data/item/spell.mjs,
+  // compendiumBrowserFilters -> the "spelllist" filter's createFilter): the
+  // Compendium Browser's class filter always resolves to
+  // `{ k: "system.identifier", o: "in", v: list.identifiers }`, where `list`
+  // is the exact same SpellList object `dnd5e.registry.spellLists.forType()`
+  // returns, read live, every time the filter runs. There is no way to hand
+  // the Browser a different/custom accepted-identifier set through its own
+  // filter options - `list.identifiers` (registry.mjs) is the only input it
+  // ever reads.
+  //
+  // That getter is built by resolving every UUID on the class's list via
+  // fromUuidSync, which needs the full compendium Document already loaded in
+  // memory. v1.20.7 tried pre-loading those documents first (fromUuid) to
+  // make that resolution succeed - verified, against the same user's world,
+  // to still not be enough for every spell. v1.20.8 gave up on the filter
+  // being accurate at all and just turned it off by default. Neither one
+  // makes the class list itself correct.
+  //
+  // This does: `list.uuids` (also registry.mjs) is the authoritative set of
+  // UUIDs actually registered to the class - built directly from the spell
+  // list journal page's own data, no document resolution involved, so it's
+  // never wrong. For each of those UUIDs we only need one index field,
+  // `system.identifier` (plus `name` as the same fallback dnd5e itself uses)
+  // - and a compendium's index is available the moment it's loaded, with no
+  // document-loading or permission dependency at all. So: index every pack
+  // those UUIDs live in with that field, read each spell's real identifier
+  // straight out of the index, and build the accepted-identifier set that
+  // way instead. Then install it as this SpellList instance's own
+  // `identifiers` (shadowing the prototype getter for this one object only),
+  // unioned with whatever dnd5e's own getter already resolves on its own -
+  // so nothing dnd5e could already see is lost, and nothing it was dropping
+  // stays dropped. Once patched, every place in dnd5e (not just this
+  // module's own Browser calls) that reads this class's `list.identifiers`
+  // sees the corrected set for the rest of the session.
+  async _applyAccurateSpellListIdentifiers(classKey) {
     const key = String(classKey ?? "").trim().toLowerCase();
     if (!key) return;
     try {
       const registry = globalThis.dnd5e?.registry ?? game.dnd5e?.registry;
       const list = registry?.spellLists?.forType?.("class", key);
       if (!list?.uuids?.size) return;
-      await Promise.allSettled(Array.from(list.uuids).map(uuid => fromUuid(uuid)));
+
+      let accurate;
+      try { accurate = new Set(list.identifiers); } catch (err) { accurate = new Set(); }
+
+      const formatIdentifier = globalThis.dnd5e?.utils?.formatIdentifier;
+      const indexCache = new Map();
+
+      for (const uuid of list.uuids) {
+        try {
+          const { collection, id } = foundry.utils.parseUuid(uuid);
+          if (!(collection instanceof foundry.documents.collections.CompendiumCollection) || !id) continue;
+
+          let index = indexCache.get(collection.collection);
+          if (!index) {
+            index = await collection.getIndex({ fields: ["system.identifier", "name", "type"] });
+            indexCache.set(collection.collection, index);
+          }
+
+          const entry = index.get(id);
+          if (!entry || entry.type !== "spell") continue;
+          const identifier = entry.system?.identifier || (formatIdentifier ? formatIdentifier(entry.name) : null);
+          if (identifier) accurate.add(identifier);
+        } catch (err) {
+          // One bad UUID shouldn't block the rest of the class's list.
+        }
+      }
+
+      if (!accurate.size) return;
+      Object.defineProperty(list, "identifiers", { configurable: true, get: () => accurate });
     } catch (err) {
-      console.warn(`${MODULE_ID} | Could not warm the spell list registry cache for class "${key}"`, err);
+      console.warn(`${MODULE_ID} | Could not build an accurate spell list for class "${key}"`, err);
     }
   }
 
@@ -835,26 +878,18 @@ export class LevelOne2024Builder extends Application {
     // level 1, ritual-only for Pact of the Tome) and letting a player clear
     // them would let them pick the wrong kind of spell entirely.
     //
-    // The class spell-list filter is different, and as of v1.20.8 it is no
-    // longer pre-checked at all. v1.20.6 made it unlockable, v1.20.7 tried
-    // to fix the specific cause found for "Toll the Dead" (dnd5e's own
-    // identifier lookup silently dropping spells whose document hadn't
-    // loaded yet) by pre-warming that cache - and that fix was verified
-    // against the same user's world to still not be enough: a genuinely
-    // registered, correctly-leveled, correctly-tagged spell still failed
-    // dnd5e's own "spelllist" filter even after warming. Rather than keep
-    // chasing individual causes inside dnd5e's own registry resolution,
-    // v1.20.8 stops depending on it being pre-checked by default at all:
-    // this filter is still offered as an optional checkbox in the
-    // Compendium Browser's own sidebar for anyone who wants to narrow the
-    // list down to just a class's known-registered spells, but nothing is
-    // ever hidden from the default view because of it. Every spell of the
-    // right level from a legitimate (non-automation) pack is shown by
-    // default, full stop - correctness over a shorter list.
-    //
-    // The cache warming itself is harmless and still genuinely helps if a
-    // player does turn the filter on manually, so it stays.
-    if (classKey) await this._warmSpellListRegistryCache(classKey);
+    // The class spell-list filter is built, as of v1.20.9, from a corrected
+    // accepted-identifier set computed directly from each pack's own index
+    // rather than dnd5e's own (unreliable) document-resolution path - see
+    // _applyAccurateSpellListIdentifiers above for the full explanation and
+    // why v1.20.7's and v1.20.8's approaches weren't good enough. With that
+    // correction applied, the filter is accurate again, so it goes back to
+    // being pre-checked by default (matching v1.20.6 and earlier): normal
+    // play only shows this class's actual spells. It still isn't locked, so
+    // a spell that's genuinely never been added to the class's list at all
+    // (not a resolution failure, just never registered) can still be found
+    // by unticking it in the Compendium Browser's own sidebar.
+    if (classKey) await this._applyAccurateSpellListIdentifiers(classKey);
 
     const lockedAdditional = {};
     if (Number.isFinite(levelMin) || Number.isFinite(levelMax)) {
@@ -864,14 +899,11 @@ export class LevelOne2024Builder extends Application {
     }
     if (ritualOnly) lockedAdditional.properties = { ritual: 1 };
 
-    // Deliberately NOT setting initialAdditional.spelllist anymore (see
-    // comment above) - the class filter is available in the sidebar but
-    // starts unchecked, so it can never be the reason a real spell is
-    // missing from the default list.
     const initialAdditional = {};
-    const classListAvailable = classKey ? this._classSpellListFilterValue(classKey) : null;
-    const effectiveHint = classListAvailable
-      ? `${hint} Want to narrow this down to just this class's known spell list? There's an optional class filter in the sidebar here you can tick yourself - it's left off by default since it can't be relied on to include every spell that actually belongs on this class's list.`
+    const spellListFilter = classKey ? this._classSpellListFilterValue(classKey) : null;
+    if (spellListFilter) initialAdditional.spelllist = spellListFilter;
+    const effectiveHint = spellListFilter
+      ? `${hint} Not seeing a spell from a compendium you added? Untick the class spell list filter in the sidebar here - that spell isn't registered to this class's spell list at all yet, which only a GM can add.`
       : hint;
 
     const types = new Set(["spell"]);
