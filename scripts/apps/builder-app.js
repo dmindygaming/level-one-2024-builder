@@ -784,42 +784,48 @@ export class LevelOne2024Builder extends Application {
     return null;
   }
 
-  // v1.20.9 - the actual fix, not another workaround.
-  //
-  // Read directly from dnd5e's own source (module/data/item/spell.mjs,
-  // compendiumBrowserFilters -> the "spelllist" filter's createFilter): the
-  // Compendium Browser's class filter always resolves to
+  // v1.20.9 read dnd5e's own source (module/data/item/spell.mjs,
+  // compendiumBrowserFilters -> the "spelllist" filter's createFilter) and
+  // confirmed the Compendium Browser's class filter always resolves to
   // `{ k: "system.identifier", o: "in", v: list.identifiers }`, where `list`
   // is the exact same SpellList object `dnd5e.registry.spellLists.forType()`
-  // returns, read live, every time the filter runs. There is no way to hand
-  // the Browser a different/custom accepted-identifier set through its own
-  // filter options - `list.identifiers` (registry.mjs) is the only input it
-  // ever reads.
-  //
+  // returns, read live every time the filter runs - the only input it ever
+  // reads, with no way to hand it a custom accepted-identifier set directly.
   // That getter is built by resolving every UUID on the class's list via
   // fromUuidSync, which needs the full compendium Document already loaded in
-  // memory. v1.20.7 tried pre-loading those documents first (fromUuid) to
-  // make that resolution succeed - verified, against the same user's world,
-  // to still not be enough for every spell. v1.20.8 gave up on the filter
-  // being accurate at all and just turned it off by default. Neither one
-  // makes the class list itself correct.
+  // memory (unreliable - v1.20.7 confirmed). `list.uuids` is the fix: the
+  // authoritative, always-correct set of UUIDs actually registered to the
+  // class, built straight from the spell-list journal page's own data, no
+  // document resolution needed.
   //
-  // This does: `list.uuids` (also registry.mjs) is the authoritative set of
-  // UUIDs actually registered to the class - built directly from the spell
-  // list journal page's own data, no document resolution involved, so it's
-  // never wrong. For each of those UUIDs we only need one index field,
-  // `system.identifier` (plus `name` as the same fallback dnd5e itself uses)
-  // - and a compendium's index is available the moment it's loaded, with no
-  // document-loading or permission dependency at all. So: index every pack
-  // those UUIDs live in with that field, read each spell's real identifier
-  // straight out of the index, and build the accepted-identifier set that
-  // way instead. Then install it as this SpellList instance's own
-  // `identifiers` (shadowing the prototype getter for this one object only),
-  // unioned with whatever dnd5e's own getter already resolves on its own -
-  // so nothing dnd5e could already see is lost, and nothing it was dropping
-  // stays dropped. Once patched, every place in dnd5e (not just this
-  // module's own Browser calls) that reads this class's `list.identifiers`
-  // sees the corrected set for the rest of the session.
+  // v1.20.9's first attempt at reading index data back out for those UUIDs
+  // used `foundry.utils.parseUuid()` to split each one into its pack and
+  // document id, and that was confirmed, against a live user's world running
+  // that exact build, to not fix anything - the class list came back
+  // identical to before the fix. `parseUuid` is a Foundry *core* API, not
+  // part of dnd5e's own (open-source, checkable) codebase, so its exact
+  // return shape was never actually verified - if it doesn't return a field
+  // named plain `id`, every UUID in that loop silently no-ops via its own
+  // `continue`, and the result is indistinguishable from no fix at all,
+  // which matches exactly what was reported.
+  //
+  // This version drops parseUuid entirely and only uses primitives already
+  // directly verified against this exact world's real data in the console
+  // diagnostics earlier in this investigation: iterate every Item pack,
+  // index it for `system.identifier`/`name`/`type` (exactly how the
+  // diagnostic scripts read spell data successfully), reconstruct each
+  // entry's UUID as the plain string `Compendium.<pack.collection>.<_id>`
+  // (the same construction `forSpell()` lookups were confirmed to match
+  // against), and check it against `list.uuids` with a plain Set.has() - no
+  // parsing, no assumptions about an unverifiable core API's return shape.
+  // Matches get their real identifier (system.identifier, falling back to
+  // formatIdentifier(name) exactly as dnd5e's own getter does) added to the
+  // accepted set, unioned with whatever dnd5e's own getter already resolved
+  // on its own so nothing already-correct is lost. That corrected set is
+  // then installed as this SpellList instance's own `identifiers` (shadowing
+  // the prototype getter for this one object only), so every place in dnd5e
+  // - not just this module's own Browser calls - sees it for the rest of
+  // the session.
   async _applyAccurateSpellListIdentifiers(classKey) {
     const key = String(classKey ?? "").trim().toLowerCase();
     if (!key) return;
@@ -827,30 +833,27 @@ export class LevelOne2024Builder extends Application {
       const registry = globalThis.dnd5e?.registry ?? game.dnd5e?.registry;
       const list = registry?.spellLists?.forType?.("class", key);
       if (!list?.uuids?.size) return;
+      const registeredUuids = list.uuids;
 
       let accurate;
       try { accurate = new Set(list.identifiers); } catch (err) { accurate = new Set(); }
 
       const formatIdentifier = globalThis.dnd5e?.utils?.formatIdentifier;
-      const indexCache = new Map();
 
-      for (const uuid of list.uuids) {
+      for (const pack of game.packs) {
+        if (pack.metadata?.type !== "Item") continue;
+        let index;
         try {
-          const { collection, id } = foundry.utils.parseUuid(uuid);
-          if (!(collection instanceof foundry.documents.collections.CompendiumCollection) || !id) continue;
-
-          let index = indexCache.get(collection.collection);
-          if (!index) {
-            index = await collection.getIndex({ fields: ["system.identifier", "name", "type"] });
-            indexCache.set(collection.collection, index);
-          }
-
-          const entry = index.get(id);
-          if (!entry || entry.type !== "spell") continue;
+          index = await pack.getIndex({ fields: ["system.identifier", "name", "type"] });
+        } catch (err) {
+          continue;
+        }
+        for (const entry of index) {
+          if (entry.type !== "spell") continue;
+          const uuid = `Compendium.${pack.collection}.${entry._id}`;
+          if (!registeredUuids.has(uuid)) continue;
           const identifier = entry.system?.identifier || (formatIdentifier ? formatIdentifier(entry.name) : null);
           if (identifier) accurate.add(identifier);
-        } catch (err) {
-          // One bad UUID shouldn't block the rest of the class's list.
         }
       }
 
