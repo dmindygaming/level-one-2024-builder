@@ -3,6 +3,7 @@ import { registerSettings } from "./core/settings.js";
 import { registerDialogTheming } from "./core/gui-theme.js";
 import { getEnabledBuiltinAbilityMethodIds } from "./core/ability-methods.js";
 import { discoverDnd5eItemPacks } from "./core/source-types.js";
+import { fixOfficialSpellListGaps } from "./core/spell-list-registry-fix.js";
 import { openLevelOne2024Builder, LevelOne2024Builder } from "./apps/builder-app.js";
 import { LevelOne2024SourcebookSettings } from "./apps/sourcebook-settings.js";
 import { LevelOne2024AbilityMethodSettings } from "./apps/ability-method-settings.js";
@@ -18,6 +19,14 @@ Hooks.once("ready", async () => {
   if (game.system.id !== "dnd5e") {
     ui.notifications.warn("Level One 2024 Character Builder is intended for the dnd5e system.");
   }
+
+  // Reconciles dnd5e's own registered class spell lists against whatever
+  // 2024 spells this user actually owns, for every connected client (GM and
+  // players alike, since each client builds its own in-memory registry) -
+  // see core/spell-list-registry-fix.js for the full story. Not awaited so
+  // it never delays the rest of ready; _openSpellCompendiumBrowser() awaits
+  // it again as a safety net before it's actually needed.
+  fixOfficialSpellListGaps();
 
   if (game.user.isGM && !game.settings.get(MODULE_ID, "manualAbilityMethodMigrationDone")) {
     const enabled = getEnabledBuiltinAbilityMethodIds();
