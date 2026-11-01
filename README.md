@@ -1,6 +1,14 @@
 # Level One 2024 Character Builder
 
-Current version: v1.20.7
+Current version: v1.20.8
+
+## v1.20.8: The class spell-list filter no longer hides anything by default - it's opt-in now, not opt-out
+
+**Reported by a live user**: even after v1.20.7's targeted fix (pre-loading every spell on a class's registered list before opening the browser, to work around a specific case where dnd5e's own identifier lookup was silently dropping an unloaded document), the same spell ("Toll the Dead" - genuinely registered to Cleric/Warlock/Wizard, correctly leveled, correctly tagged) was confirmed still missing from the Cleric cantrip list with the class filter applied, on a confirmed-updated, confirmed-reloaded install.
+
+That means dnd5e's own spell-list filter has more than one way to silently miss a spell that's genuinely valid for a class, beyond the specific document-loading cause v1.20.7 targeted and fixed. Rather than keep chasing individual causes one report at a time inside a system we don't control, v1.20.8 changes the default itself: the class spell-list filter is no longer pre-checked when the Cantrips/Level 1 Spells/Magic Initiate/Pact of the Tome spell pickers open. It's still right there in the Compendium Browser's own sidebar as an optional filter anyone can tick if they want to narrow the list down to just a class's known-registered spells - but nothing is ever hidden from the list you see by default because of it. Every spell of the correct level from a real, non-automation pack is shown, full stop. (Level range and the ritual-only restriction for Pact of the Tome still can't be turned off - those come from the spell's own data, not from dnd5e's spell-list registry, and aren't affected by any of this.)
+
+This trades a shorter, pre-narrowed-to-your-class list for a guarantee that a real spell on your class's list can never be invisible because of how dnd5e's own registry happened to resolve it. v1.20.7's cache-warming step stays in place too, since it still genuinely helps on top of this for anyone who does turn the optional filter on.
 
 ## v1.20.7: Found and fixed the actual reason a correctly-registered spell (e.g. "Toll the Dead") could still fail the class spell-list filter
 
