@@ -390,7 +390,16 @@ export class LevelOne2024Builder extends Application {
 
 
   _steps() {
-    const steps = ["Actor", "Name", "Ability Scores Generation", "Species"];
+    // Class selection comes before Ability Scores Generation (and before
+    // everything else) so a player knows their class - and which ability it
+    // leans on - before deciding where to put their generated scores. Only
+    // the class *selection* step moves up front; "Class Choices" (skills,
+    // subclass-style picks, Fighting Style, weapon masteries, etc.) stays in
+    // its original spot, after Background, because its own skill picker
+    // deliberately hides skills already granted by the chosen background
+    // (see _classSkillOptions()/_backgroundSkillKeys()) - moving it earlier
+    // would silently defeat that overlap check.
+    const steps = ["Actor", "Name", "Class", "Ability Scores Generation", "Species"];
     // Some 2024 species have a required level-1 choice. Since this builder
     // strips species advancements to suppress built-in prompts, it has to own
     // those choices and only show the step for species that need it.
@@ -412,7 +421,7 @@ export class LevelOne2024Builder extends Application {
     // feat), so by the time this step can show up the choice is already known
     // either way.
     if (this._isSkilledFeatActive()) steps.push("Skilled Proficiencies");
-    steps.push("Class", "Class Choices", "Starting Equipment", "Spells", "Languages", "Review");
+    steps.push("Class Choices", "Starting Equipment", "Spells", "Languages", "Review");
     return steps;
   }
 
