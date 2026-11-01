@@ -1,6 +1,18 @@
 # Level One 2024 Character Builder
 
-Current version: v1.22.2
+Current version: v1.22.3
+
+## v1.22.3: New characters finished with less than full HP, no usable spell slots, and chosen spells not actually prepared
+
+**Reported by a live user**: "When the features and spells are added, the character's health isn't full, they have no unused spell slots and the spells they select aren't prepared." Three separate, unrelated root causes, all found and confirmed live against a disposable test character instead of guessed:
+
+**HP not full.** `_setLevelOneHitPoints()` hand-computed starting HP as `hit die + CON modifier` instead of reading the actor's own, already-derived `system.attributes.hp.max`. That's wrong whenever anything else also raises max HP at level 1 - most commonly a 2024 Origin Feat like Tough (+2 HP). By the time this function runs, every level-1 item (including origin feats) is already on the actor, so dnd5e has already correctly derived the true max - the function just never looked at it. Confirmed live: a Cleric (d8, CON 14) with the Tough feat added derives `hp.max: 12` (10 base + 2 from Tough), but the old hand-rolled formula only ever wrote `hp.value: 10`, leaving the character visibly short of full health (83%) the moment they were created. Fixed by reading `actor.system.attributes.hp.max` directly and setting `hp.value` to match it, falling back to the old hand-rolled formula only if max somehow isn't derived yet.
+
+**No unused spell slots.** dnd5e correctly derives `system.spells.spellN.max` for a level-1 caster (e.g. 2 for a level-1 Cleric), but the actual "slots available right now" value is separate, literal source data that was never initialized anywhere in the finish flow - confirmed live: a freshly built Cleric had `spell1: {max: 2, value: 0}`. This was a missing step, not a wrong one, mirroring the same max-vs-value split HP already had. Added `_setLevelOneSpellSlots()`, which runs right after HP is set and copies every spell block's derived `max` into its `value` (covers every spell level 1-9 and Pact Magic).
+
+**Chosen spells not marked prepared.** The builder wrote `system.preparation = {mode: "prepared", prepared: true}` on class-list spells, but dnd5e 6.x removed that object entirely in favor of flat `system.method` ("spell"/"innate"/...) and `system.prepared` (an integer enum: 0 unprepared, 1 prepared, 2 always). dnd5e keeps a backward-compatibility shim for the old field, but it only copies `.mode`/`.prepared` into the new fields when the item's own serialized data doesn't *already* have `method`/`prepared` as explicit keys - true for most real compendium items (e.g. anything imported via ddb-importer) - and deletes the legacy object either way. So the old write was silently discarded for most spells and only "worked" by accident on ones whose source data happened to omit those keys. Confirmed live: a Cleric's own chosen 1st-level spell (Alarm) landed on the actor with `prepared: 0` ("Not Prepared") despite the class being a prepared caster. Fixed by writing `system.method = "spell"` and `system.prepared` (from `CONFIG.DND5E.spellPreparationStates.prepared.value`) directly. The same dead field was also used to mark a Magic Initiate level-1 spell as "innate" casting - replaced with `system.method = "innate"` directly; innate spells have no separate prepared state to set at all (`CONFIG.DND5E.spellcasting.innate` has no `prepares` flag), so only the method needed fixing there.
+
+All three fixes verified live, end to end, in the same world before shipping: HP came out at 100% (12/12) with Tough applied, `spell1.value` matched `spell1.max` (2/2), and a class-list spell created with the new fields came back with `canPrepare: true` and `countsPrepared: true` on the actor.
 
 ## v1.22.2: Starting Equipment could be selected but nothing was actually added to the character
 
