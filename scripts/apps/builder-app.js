@@ -30,6 +30,7 @@ import { blockAutomationPacksFromCompendiumBrowser } from "../core/pack-source-g
 import { getOverride, OVERRIDE_CONTEXT } from "../core/overrides.js";
 import { configuredCharacterFolderId } from "./folder-settings.js";
 import { LevelOne2024SourcebookSettings } from "./sourcebook-settings.js";
+import { fixOfficialSpellListGaps } from "../core/spell-list-registry-fix.js";
 
 export class LevelOne2024Builder extends Application {
   constructor(options = {}) {
@@ -784,86 +785,21 @@ export class LevelOne2024Builder extends Application {
     return null;
   }
 
-  // v1.20.9 read dnd5e's own source (module/data/item/spell.mjs,
-  // compendiumBrowserFilters -> the "spelllist" filter's createFilter) and
-  // confirmed the Compendium Browser's class filter always resolves to
-  // `{ k: "system.identifier", o: "in", v: list.identifiers }`, where `list`
-  // is the exact same SpellList object `dnd5e.registry.spellLists.forType()`
-  // returns, read live every time the filter runs - the only input it ever
-  // reads, with no way to hand it a custom accepted-identifier set directly.
-  // That getter is built by resolving every UUID on the class's list via
-  // fromUuidSync, which needs the full compendium Document already loaded in
-  // memory (unreliable - v1.20.7 confirmed). `list.uuids` is the fix: the
-  // authoritative, always-correct set of UUIDs actually registered to the
-  // class, built straight from the spell-list journal page's own data, no
-  // document resolution needed.
+  // v1.20.7 through v1.21.0 all tried to patch how this one dialog *resolves*
+  // identifiers on dnd5e's own registered class lists. Diagnosed live,
+  // directly in a GM's actual running world, that was never the bug: a
+  // retail-only 2024 spell like Toll the Dead simply isn't part of dnd5e's
+  // free, bundled spell data in the first place, so no amount of correcting
+  // identifier resolution could ever have surfaced it - and it wasn't just
+  // this one spell (252 of one GM's own 575 imported spells weren't in
+  // dnd5e's free pack). The real fix now lives in
+  // core/spell-list-registry-fix.js: it reconciles dnd5e's own registered
+  // class spell lists, for real, using dnd5e's own public
+  // `SpellList#contribute()` extension point and the class-list tags already
+  // present on the GM's own spell items - see that file for the full
+  // explanation. It runs once at module ready, and again here as a safety
+  // net in case this dialog opens before that's finished.
   //
-  // v1.20.9's first attempt at reading index data back out for those UUIDs
-  // used `foundry.utils.parseUuid()` to split each one into its pack and
-  // document id, and that was confirmed, against a live user's world running
-  // that exact build, to not fix anything - the class list came back
-  // identical to before the fix. `parseUuid` is a Foundry *core* API, not
-  // part of dnd5e's own (open-source, checkable) codebase, so its exact
-  // return shape was never actually verified - if it doesn't return a field
-  // named plain `id`, every UUID in that loop silently no-ops via its own
-  // `continue`, and the result is indistinguishable from no fix at all,
-  // which matches exactly what was reported.
-  //
-  // This version drops parseUuid entirely and only uses primitives already
-  // directly verified against this exact world's real data in the console
-  // diagnostics earlier in this investigation: iterate every Item pack,
-  // index it for `system.identifier`/`name`/`type` (exactly how the
-  // diagnostic scripts read spell data successfully), reconstruct each
-  // entry's UUID as the plain string `Compendium.<pack.collection>.<_id>`
-  // (the same construction `forSpell()` lookups were confirmed to match
-  // against), and check it against `list.uuids` with a plain Set.has() - no
-  // parsing, no assumptions about an unverifiable core API's return shape.
-  // Matches get their real identifier (system.identifier, falling back to
-  // formatIdentifier(name) exactly as dnd5e's own getter does) added to the
-  // accepted set, unioned with whatever dnd5e's own getter already resolved
-  // on its own so nothing already-correct is lost. That corrected set is
-  // then installed as this SpellList instance's own `identifiers` (shadowing
-  // the prototype getter for this one object only), so every place in dnd5e
-  // - not just this module's own Browser calls - sees it for the rest of
-  // the session.
-  async _applyAccurateSpellListIdentifiers(classKey) {
-    const key = String(classKey ?? "").trim().toLowerCase();
-    if (!key) return;
-    try {
-      const registry = globalThis.dnd5e?.registry ?? game.dnd5e?.registry;
-      const list = registry?.spellLists?.forType?.("class", key);
-      if (!list?.uuids?.size) return;
-      const registeredUuids = list.uuids;
-
-      let accurate;
-      try { accurate = new Set(list.identifiers); } catch (err) { accurate = new Set(); }
-
-      const formatIdentifier = globalThis.dnd5e?.utils?.formatIdentifier;
-
-      for (const pack of game.packs) {
-        if (pack.metadata?.type !== "Item") continue;
-        let index;
-        try {
-          index = await pack.getIndex({ fields: ["system.identifier", "name", "type"] });
-        } catch (err) {
-          continue;
-        }
-        for (const entry of index) {
-          if (entry.type !== "spell") continue;
-          const uuid = `Compendium.${pack.collection}.${entry._id}`;
-          if (!registeredUuids.has(uuid)) continue;
-          const identifier = entry.system?.identifier || (formatIdentifier ? formatIdentifier(entry.name) : null);
-          if (identifier) accurate.add(identifier);
-        }
-      }
-
-      if (!accurate.size) return;
-      Object.defineProperty(list, "identifiers", { configurable: true, get: () => accurate });
-    } catch (err) {
-      console.warn(`${MODULE_ID} | Could not build an accurate spell list for class "${key}"`, err);
-    }
-  }
-
   /**
    * Open the dnd5e Compendium Browser's Spells tab, locked to a spell level
    * range and (when resolvable) a specific class spell list, and let the
@@ -881,18 +817,19 @@ export class LevelOne2024Builder extends Application {
     // level 1, ritual-only for Pact of the Tome) and letting a player clear
     // them would let them pick the wrong kind of spell entirely.
     //
-    // The class spell-list filter is built, as of v1.20.9, from a corrected
-    // accepted-identifier set computed directly from each pack's own index
-    // rather than dnd5e's own (unreliable) document-resolution path - see
-    // _applyAccurateSpellListIdentifiers above for the full explanation and
-    // why v1.20.7's and v1.20.8's approaches weren't good enough. With that
-    // correction applied, the filter is accurate again, so it goes back to
-    // being pre-checked by default (matching v1.20.6 and earlier): normal
-    // play only shows this class's actual spells. It still isn't locked, so
-    // a spell that's genuinely never been added to the class's list at all
-    // (not a resolution failure, just never registered) can still be found
-    // by unticking it in the Compendium Browser's own sidebar.
-    if (classKey) await this._applyAccurateSpellListIdentifiers(classKey);
+    // The class spell-list filter itself, as of v1.22.0, is dnd5e's own
+    // registered list, genuinely reconciled against the GM's own spell data
+    // by fixOfficialSpellListGaps() (core/spell-list-registry-fix.js) - this
+    // call is just a safety net in case that hasn't finished yet (it's
+    // idempotent and near-instant after the first run). With that in place
+    // the filter stays pre-checked by default (matching v1.20.6 and
+    // earlier): normal play only shows this class's actual spells. It still
+    // isn't locked, so a spell that's genuinely not part of this class's
+    // list at all - including under any license dnd5e doesn't ship for free
+    // and the reconciler couldn't find tagged on anything the GM owns - can
+    // still be found by unticking it in the Compendium Browser's own
+    // sidebar.
+    await fixOfficialSpellListGaps();
 
     const lockedAdditional = {};
     if (Number.isFinite(levelMin) || Number.isFinite(levelMax)) {
