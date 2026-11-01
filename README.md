@@ -1,6 +1,14 @@
 # Level One 2024 Character Builder
 
-Current version: v1.22.3
+Current version: v1.22.4
+
+## v1.22.4: Removed the redundant icon gallery from Species/Background/Class now that "Browse All Sources" does the same job
+
+**Requested by a live user**: once a "Browse All Sources" button is present on a step, the in-wizard icon list showing the same options is extra GUI that isn't needed.
+
+The Species, Background, and Class steps each had two ways to pick an entry: a "Browse All Sources" button that opens dnd5e's own Compendium Browser (searchable, filterable, already scoped to the right content type), and, directly below it, a second, redundant picker built into the wizard itself - a scrollable grid of icon cards (one per known species/background/class, with its own art, name, and a "Details" button) plus its own separate search box just for filtering that grid. Both pickers called the same selection logic; the icon grid was just a second, more limited way to do what the Browse button already did better.
+
+Removed the icon grid and its search box from all three steps, keeping only the "Selected: <name>" heading and the "Browse All Sources" button. This is a pure template change (`templates/builder.hbs`) - nothing about how species, backgrounds, or classes are selected, searched, or applied to the actor was touched, so there's no functional risk here, only a simpler step panel. Verified by rendering the updated template against real live data (the actual `getData()` output from a fresh builder instance in the same world) for all three steps before shipping: each renders cleanly, still shows "Browse All Sources", and no longer emits the icon grid or its search box.
 
 ## v1.22.3: New characters finished with less than full HP, no usable spell slots, and chosen spells not actually prepared
 
