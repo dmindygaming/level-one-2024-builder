@@ -784,6 +784,40 @@ export class LevelOne2024Builder extends Application {
     return null;
   }
 
+  // v1.20.7 - verified against a user's live world (console diagnostic) that
+  // dnd5e's own SpellList#identifiers (registry.mjs) is built by resolving
+  // every spell UUID on the class's registered spell-list journal page
+  // through fromUuidSync. fromUuidSync only succeeds for a compendium
+  // document that has already been fully *loaded* into memory this session,
+  // not merely *indexed* (indexing happens automatically on world load,
+  // loading does not). A spell can therefore be genuinely registered to a
+  // class - dnd5e.registry.spellLists.forSpell(uuid) correctly reports the
+  // class as a member - while still being silently dropped from that same
+  // class's `identifiers` set, which is what the Compendium Browser's
+  // "spelllist" filter actually checks against. This is exactly what was
+  // confirmed for "Toll the Dead": registered to Cleric/Warlock/Wizard by
+  // forSpell(), correctly leveled and tagged, yet list.identifiers.has(...)
+  // was false for all three because its copy's pack hadn't had its document
+  // fully loaded yet.
+  //
+  // The fix: before asking the Compendium Browser to filter by a class's
+  // spell list, force every spell on that list to load via the async (and
+  // always-reliable) fromUuid. That warms the exact same cache fromUuidSync
+  // reads from, so dnd5e's own filter sees the whole list instead of
+  // whichever spells happened to already be loaded elsewhere.
+  async _warmSpellListRegistryCache(classKey) {
+    const key = String(classKey ?? "").trim().toLowerCase();
+    if (!key) return;
+    try {
+      const registry = globalThis.dnd5e?.registry ?? game.dnd5e?.registry;
+      const list = registry?.spellLists?.forType?.("class", key);
+      if (!list?.uuids?.size) return;
+      await Promise.allSettled(Array.from(list.uuids).map(uuid => fromUuid(uuid)));
+    } catch (err) {
+      console.warn(`${MODULE_ID} | Could not warm the spell list registry cache for class "${key}"`, err);
+    }
+  }
+
   /**
    * Open the dnd5e Compendium Browser's Spells tab, locked to a spell level
    * range and (when resolvable) a specific class spell list, and let the
@@ -802,18 +836,22 @@ export class LevelOne2024Builder extends Application {
     // them would let them pick the wrong kind of spell entirely.
     //
     // The class spell-list filter is different: it's dnd5e's own registered
-    // "which spells belong to this class" list (Configure Spell Lists), not
-    // anything derived from the spell's own source/book metadata. A spell
-    // added via a newly-installed compendium is invisible to that filter
-    // until a GM manually adds it to the class's list there - which most GMs
-    // installing a new spell pack won't have done yet. Locking this filter
-    // the same way as level would silently hide every spell from an
-    // unregistered compendium with no way for the player to see why, so
-    // v1.20.6 moves it to `initial` instead of `locked`: it's still
-    // pre-checked (so normal play still only shows the right class's
-    // spells), but a player or GM can uncheck it in the Compendium Browser's
-    // own sidebar to see every spell of the right level/type, including ones
-    // from packs dnd5e's spell-list registry doesn't know about yet.
+    // "which spells belong to this class" list, and - verified in v1.20.7
+    // against a user's live world - dnd5e's own lookup for that list
+    // (SpellList#identifiers in registry.mjs) can silently miss spells that
+    // are genuinely registered to the class simply because their document
+    // hadn't been loaded into memory yet this session (see
+    // _warmSpellListRegistryCache above). Warming the cache fixes that for
+    // any spell dnd5e's registry actually knows about, but a spell from a
+    // compendium nobody has ever added to the class's list at all is still
+    // genuinely invisible to this filter. Locking this filter the same way
+    // as level would hide those with no way for the player to see why, so
+    // it stays on `initial` instead of `locked`: pre-checked (so normal play
+    // still only shows the right class's spells), but a player or GM can
+    // uncheck it in the Compendium Browser's own sidebar to see every spell
+    // of the right level/type regardless.
+    if (classKey) await this._warmSpellListRegistryCache(classKey);
+
     const lockedAdditional = {};
     if (Number.isFinite(levelMin) || Number.isFinite(levelMax)) {
       lockedAdditional.level = {};
@@ -826,7 +864,7 @@ export class LevelOne2024Builder extends Application {
     const spellListFilter = classKey ? this._classSpellListFilterValue(classKey) : null;
     if (spellListFilter) initialAdditional.spelllist = spellListFilter;
     const effectiveHint = spellListFilter
-      ? `${hint} Not seeing a spell from a compendium you added? Untick the class spell list filter in the sidebar here - new compendiums aren't automatically registered with that class's list until a GM adds them in dnd5e's Configure Spell Lists.`
+      ? `${hint} Not seeing a spell from a compendium you added? Untick the class spell list filter in the sidebar here - that spell isn't registered to this class's spell list at all yet, which only a GM can add.`
       : hint;
 
     const types = new Set(["spell"]);
