@@ -56,12 +56,30 @@ let _ran = false;
  */
 export async function fixOfficialSpellListGaps() {
   if (_ran) return;
-  _ran = true;
 
   try {
     const registry = globalThis.dnd5e?.registry ?? game.dnd5e?.registry;
     const formatIdentifier = globalThis.dnd5e?.utils?.formatIdentifier;
+    // dnd5e isn't loaded yet - don't latch _ran, so a later call (the safety
+    // net in _openSpellCompendiumBrowser) can still succeed.
     if (!registry?.spellLists || !formatIdentifier) return;
+
+    // v1.22.0 called this from the "ready" hook without waiting for dnd5e to
+    // finish registering its OWN spell lists first (registry.ready is a
+    // Promise dnd5e itself exposes for exactly this). Confirmed, live,
+    // against this project's own world: dnd5e's spell-list registration can
+    // still be in progress at the moment "ready" fires, so the scan below
+    // ran against an empty/partial registry and silently did nothing - then
+    // permanently marked itself done, so even the safety-net call before
+    // opening this module's own dialog never got a second chance to run
+    // correctly. Confirmed fixed, live, in the same world: awaiting
+    // registry.ready first, then re-running the exact same scan, correctly
+    // found and added every spell it was supposed to.
+    if (registry.ready) await registry.ready;
+
+    // Only latch "already ran" once we know we actually had a fully-loaded
+    // registry to work with - not before.
+    _ran = true;
 
     // Only ever extend a class identifier dnd5e already has an official,
     // registered spell list for.
