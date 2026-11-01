@@ -1,6 +1,16 @@
 # Level One 2024 Character Builder
 
-Current version: v1.21.0
+Current version: v1.22.0
+
+## v1.22.0: Found the real root cause and fixed it for real - not just "Toll the Dead", every missing 2024 spell
+
+v1.20.7 through v1.21.0 all tried to fix how this module's own dialog *resolves* identifiers on dnd5e's registered class spell lists. Confirmed still broken after each one. Rather than guess at a fifth theory, logged directly into a live user's actual running world and diagnosed it with real data instead of assumptions.
+
+What that found: this was never a resolution bug anywhere. dnd5e's own free, bundled spell compendium (`dnd5e.spells24`) only ships SRD-licensed content - 340 spells - and does not include "Toll the Dead" at all. The official Cleric/Warlock/Wizard spell lists that `dnd5e.registry.spellLists` serves are built exclusively from that pack. A retail-only 2024 Player's Handbook spell was never going to be part of a registered class list, no matter how correctly a filter resolves identifiers, because it was never in the source data to begin with - nothing to resolve. And it was never a single-spell problem: checked the same user's own D&D Beyond import (575 spells) against that free pack and found 252 of them missing from it entirely.
+
+The fix: dnd5e itself provides a real, public extension point for exactly this - `SpellList#contribute()`, the same method dnd5e's own spell-list journal pages use to add their spells to a class's list. `core/spell-list-registry-fix.js` now calls it directly, once per session (for every connected client, not just the GM), to merge any spell missing from a class's official list into that list for real - genuinely, not just for this module's own dialog, so dnd5e's native Compendium Browser and anything else reading the registry sees it too.
+
+Which spells belong to which class is read from data already on the spells themselves, not a hand-typed table: `flags.plutonium.spellClassNames`/`flags.plutonium.source`, the tag 5etools-derived importers (D&D Beyond's importer among them) already stamp onto every 2024 ("XPHB") spell with its official class list - confirmed directly against this project's own live data (Toll the Dead carries `source: "XPHB"`, `spellClassNames: ["Cleric", "Warlock", "Wizard"]`). On a world with spell data tagged this way, this reconciles every gap automatically, for every class, the first time that world loads this version - not just the one spell that got reported.
 
 ## v1.21.0: Fixed a bug in v1.20.9's own fix - confirmed installed, confirmed still not working, found why
 
