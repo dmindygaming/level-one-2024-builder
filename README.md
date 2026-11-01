@@ -1,6 +1,14 @@
 # Level One 2024 Character Builder
 
-Current version: v1.20.4
+Current version: v1.20.5
+
+## v1.20.5: Fixed the disjointed "name on one line, source below it, big gap, then a full-width Remove button" layout on every spell/Remove list
+
+**Reported by a live user**, with a screenshot of the Cantrips/Level 1 Spells list: each selected spell was rendering as a spell name on its own line, the source label directly below it at the same left indent, a large empty gap, and then a Remove button stretched the full width of the panel on its own line below that - for a list of 3-4 spells this made the Cantrips/Level 1 Spells sections take up most of the window for very little actual content.
+
+Root cause: each `<li>` in these lists holds three separate pieces - the spell name, its source label, and the Remove button - laid out with `display: flex; flex-wrap: wrap`. The v1.20.2 fix stopped the Remove button itself from stretching to fill the row, but it didn't address the other half of the bug: with three independent flex children in a wrapping row, the name and the source label could each wrap onto their *own* line separately from one another (not just separately from the button), since flex-wrap treats every child as independently wrappable. Name, source, and button ended up stacked three deep instead of sitting together as one row.
+
+Fixed by grouping the name and source label into a single flex child (a new `.l12024b-item-label` wrapper) so they always wrap together as one unit, never apart from each other - only the Remove button can end up on its own line now, and only when the row is genuinely too narrow for it. While in there, also gave these rows an actual visual boundary (a subtle card background and border per entry, replacing the bare bullet-point list) so each selected spell/feat/invocation reads as one distinct row instead of ambiguous, unevenly-spaced text. This applies to every list that uses this same row style across the builder - Cantrips, Level 1 Spells, Magic Initiate cantrips/spell, Pact of the Tome cantrips/rituals, Origin Feats, Eldritch Invocations, Starting Equipment, and Languages.
 
 ## v1.20.4: Automation/effects-only packs (e.g. "CPR", "GPS") no longer show up as spell choices
 
