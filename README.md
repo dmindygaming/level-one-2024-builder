@@ -1,6 +1,14 @@
 # Level One 2024 Character Builder
 
-Current version: v1.20.3
+Current version: v1.20.4
+
+## v1.20.4: Automation/effects-only packs (e.g. "CPR", "GPS") no longer show up as spell choices
+
+**Reported by a live user**: the new "Browse Spell Compendium" window (dnd5e's own native Compendium Browser, used by the Cantrips/Level 1 Spells/Magic Initiate/Pact of the Tome pickers since v1.10.11) was listing items from automation/content packs - the kind of installed pack that labels its items as "spell" type so they behave correctly when dragged onto a sheet, but which only exist to run a macro/active-effect (a "rider"), not to be real playable spells. This module already excluded packs like that from its own older spell/feat/equipment lookups via a simple keyword match against each pack's name/id (the existing list already caught, among others, "cauldron"/"plentiful resources" and "gambit"/"premade"/"automation"/"rider"/"midi"/"dae" packs) - but the new native Compendium Browser doesn't use any of this module's own matching logic at all. It only ever consults dnd5e's own world setting for which packs it's allowed to show, so a pack excluded by this module's internal heuristics could still appear there.
+
+Fixed by: (1) extending that shared keyword list to also catch "cpr" and "gps"-named packs specifically, and (2) adding a new check, run automatically whenever the builder opens, that scans every installed Item compendium against that same keyword list and - for a GM only, since this is a world-scope dnd5e setting a player can't write - writes those packs into dnd5e's own "Pack Source Configuration" (the same setting a GM could otherwise only change by hand from Settings > Configure Compendium Browser Sources), so they're hidden from the native Browse Spell Compendium window too, not just from this module's own older pickers. This only ever adds packs to that hidden list automatically; it never removes a pack a GM has deliberately re-enabled there. A console message and one-time notification mark exactly which pack(s) got hidden this way, so it's never a silent change to a world setting. If a non-GM player opens the builder first, it logs what it found but waits for a GM to open the world before it can actually write the setting.
+
+If you're running a pack that gets caught by this and shouldn't be (the keyword match is a simple substring check, so it can over-match), a GM can always re-enable it from Foundry's own Settings > Configure Compendium Browser Sources dialog - this module never undoes that choice.
 
 ## v1.20.3: Skilled now actually asks which 3 skills/tools you get, and collapsed Spells sections stay collapsed
 
