@@ -835,21 +835,25 @@ export class LevelOne2024Builder extends Application {
     // level 1, ritual-only for Pact of the Tome) and letting a player clear
     // them would let them pick the wrong kind of spell entirely.
     //
-    // The class spell-list filter is different: it's dnd5e's own registered
-    // "which spells belong to this class" list, and - verified in v1.20.7
-    // against a user's live world - dnd5e's own lookup for that list
-    // (SpellList#identifiers in registry.mjs) can silently miss spells that
-    // are genuinely registered to the class simply because their document
-    // hadn't been loaded into memory yet this session (see
-    // _warmSpellListRegistryCache above). Warming the cache fixes that for
-    // any spell dnd5e's registry actually knows about, but a spell from a
-    // compendium nobody has ever added to the class's list at all is still
-    // genuinely invisible to this filter. Locking this filter the same way
-    // as level would hide those with no way for the player to see why, so
-    // it stays on `initial` instead of `locked`: pre-checked (so normal play
-    // still only shows the right class's spells), but a player or GM can
-    // uncheck it in the Compendium Browser's own sidebar to see every spell
-    // of the right level/type regardless.
+    // The class spell-list filter is different, and as of v1.20.8 it is no
+    // longer pre-checked at all. v1.20.6 made it unlockable, v1.20.7 tried
+    // to fix the specific cause found for "Toll the Dead" (dnd5e's own
+    // identifier lookup silently dropping spells whose document hadn't
+    // loaded yet) by pre-warming that cache - and that fix was verified
+    // against the same user's world to still not be enough: a genuinely
+    // registered, correctly-leveled, correctly-tagged spell still failed
+    // dnd5e's own "spelllist" filter even after warming. Rather than keep
+    // chasing individual causes inside dnd5e's own registry resolution,
+    // v1.20.8 stops depending on it being pre-checked by default at all:
+    // this filter is still offered as an optional checkbox in the
+    // Compendium Browser's own sidebar for anyone who wants to narrow the
+    // list down to just a class's known-registered spells, but nothing is
+    // ever hidden from the default view because of it. Every spell of the
+    // right level from a legitimate (non-automation) pack is shown by
+    // default, full stop - correctness over a shorter list.
+    //
+    // The cache warming itself is harmless and still genuinely helps if a
+    // player does turn the filter on manually, so it stays.
     if (classKey) await this._warmSpellListRegistryCache(classKey);
 
     const lockedAdditional = {};
@@ -860,11 +864,14 @@ export class LevelOne2024Builder extends Application {
     }
     if (ritualOnly) lockedAdditional.properties = { ritual: 1 };
 
+    // Deliberately NOT setting initialAdditional.spelllist anymore (see
+    // comment above) - the class filter is available in the sidebar but
+    // starts unchecked, so it can never be the reason a real spell is
+    // missing from the default list.
     const initialAdditional = {};
-    const spellListFilter = classKey ? this._classSpellListFilterValue(classKey) : null;
-    if (spellListFilter) initialAdditional.spelllist = spellListFilter;
-    const effectiveHint = spellListFilter
-      ? `${hint} Not seeing a spell from a compendium you added? Untick the class spell list filter in the sidebar here - that spell isn't registered to this class's spell list at all yet, which only a GM can add.`
+    const classListAvailable = classKey ? this._classSpellListFilterValue(classKey) : null;
+    const effectiveHint = classListAvailable
+      ? `${hint} Want to narrow this down to just this class's known spell list? There's an optional class filter in the sidebar here you can tick yourself - it's left off by default since it can't be relied on to include every spell that actually belongs on this class's list.`
       : hint;
 
     const types = new Set(["spell"]);
