@@ -796,25 +796,48 @@ export class LevelOne2024Builder extends Application {
       return null;
     }
 
-    const additional = {};
+    // Level (and, for ritual pools, the ritual property) genuinely have to
+    // stay locked - those define which pool this step is for (cantrips vs
+    // level 1, ritual-only for Pact of the Tome) and letting a player clear
+    // them would let them pick the wrong kind of spell entirely.
+    //
+    // The class spell-list filter is different: it's dnd5e's own registered
+    // "which spells belong to this class" list (Configure Spell Lists), not
+    // anything derived from the spell's own source/book metadata. A spell
+    // added via a newly-installed compendium is invisible to that filter
+    // until a GM manually adds it to the class's list there - which most GMs
+    // installing a new spell pack won't have done yet. Locking this filter
+    // the same way as level would silently hide every spell from an
+    // unregistered compendium with no way for the player to see why, so
+    // v1.20.6 moves it to `initial` instead of `locked`: it's still
+    // pre-checked (so normal play still only shows the right class's
+    // spells), but a player or GM can uncheck it in the Compendium Browser's
+    // own sidebar to see every spell of the right level/type, including ones
+    // from packs dnd5e's spell-list registry doesn't know about yet.
+    const lockedAdditional = {};
     if (Number.isFinite(levelMin) || Number.isFinite(levelMax)) {
-      additional.level = {};
-      if (Number.isFinite(levelMin)) additional.level.min = levelMin;
-      if (Number.isFinite(levelMax)) additional.level.max = levelMax;
+      lockedAdditional.level = {};
+      if (Number.isFinite(levelMin)) lockedAdditional.level.min = levelMin;
+      if (Number.isFinite(levelMax)) lockedAdditional.level.max = levelMax;
     }
+    if (ritualOnly) lockedAdditional.properties = { ritual: 1 };
+
+    const initialAdditional = {};
     const spellListFilter = classKey ? this._classSpellListFilterValue(classKey) : null;
-    if (spellListFilter) additional.spelllist = spellListFilter;
-    if (ritualOnly) additional.properties = { ritual: 1 };
+    if (spellListFilter) initialAdditional.spelllist = spellListFilter;
+    const effectiveHint = spellListFilter
+      ? `${hint} Not seeing a spell from a compendium you added? Untick the class spell list filter in the sidebar here - new compendiums aren't automatically registered with that class's list until a GM adds them in dnd5e's Configure Spell Lists.`
+      : hint;
 
     const types = new Set(["spell"]);
     let selected = null;
     try {
       selected = await Browser.select({
         tab: "spells",
-        hint,
+        hint: effectiveHint,
         filters: {
-          locked: { documentClass: "Item", types, exclusive: true, additional },
-          initial: { documentClass: "Item", types }
+          locked: { documentClass: "Item", types, exclusive: true, additional: lockedAdditional },
+          initial: { documentClass: "Item", types, additional: initialAdditional }
         },
         selection: { min, max }
       }, { force: true });
