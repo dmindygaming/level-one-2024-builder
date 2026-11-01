@@ -96,7 +96,9 @@ export function isLikelyDnd5eCharacterSource(pack) {
     || haystack.includes("premade")
     || haystack.includes("midi")
     || haystack.includes("dae")
-    || haystack.includes("automation")) return false;
+    || haystack.includes("automation")
+    || haystack.includes("cpr")
+    || haystack.includes("gps")) return false;
   return metadata.system === "dnd5e"
     || metadata.packageName === "dnd5e"
     || pack.collection.startsWith("dnd5e.")

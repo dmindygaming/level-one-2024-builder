@@ -37,7 +37,7 @@ export function speciesSourceScore(item) {
   if (h.includes("character origins")) return 95;
   if (h.includes("srd 5.2") || h.includes("free rules")) return 90;
   if (h.includes("srd 5.1")) return 40;
-  if (h.includes("cauldron") || h.includes("gambit") || h.includes("premade") || h.includes("automation")) return -100;
+  if (h.includes("cauldron") || h.includes("gambit") || h.includes("premade") || h.includes("automation") || h.includes("cpr") || h.includes("gps")) return -100;
   return 50;
 }
 

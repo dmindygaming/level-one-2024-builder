@@ -23,9 +23,15 @@ import { automaticPackIds, packIdsForSourceType } from "./source-types.js";
 import { getOverride } from "./overrides.js";
 import { slug } from "./util.js";
 
-const EXCLUDED_HINTS = ["cauldron", "plentiful resources", "gambit", "premade", "automation", "rider", "midi", "dae"];
+// "cpr" / "gps" cover two more named automation/effects packs (e.g. "Cauldron
+// of Plentiful Resources" short-codes and "Gambit's Premades"-style spell
+// riders) that are tagged as spell/item compendiums but only contain
+// automation effects, not real playable content - see pack-source-guard.js,
+// which reuses this same list to also hide those packs from dnd5e's own
+// native Compendium Browser.
+export const EXCLUDED_HINTS = ["cauldron", "plentiful resources", "gambit", "premade", "automation", "rider", "midi", "dae", "cpr", "gps"];
 
-function packHaystack(packId) {
+export function packHaystack(packId) {
   const pack = packId ? game.packs.get(packId) : null;
   const metadata = pack?.metadata ?? {};
   return [pack?.collection, metadata.label, metadata.packageName, metadata.system, metadata.id]
