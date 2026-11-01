@@ -121,27 +121,10 @@
   {{#if (eq currentStep "Species")}}
     <section class="l12024b-panel">
       <h2>Species</h2>
-      <p class="hint">Choose the main species entry. Lineage, ancestry, and subspecies entries are intentionally hidden because they are selected from within the species item.</p>
+      <p class="hint">Choose the main species entry using the compendium browser below. Lineage, ancestry, and subspecies entries are intentionally hidden because they are selected from within the species item.</p>
       <div class="l12024b-selection-heading" style="display:grid !important;grid-template-columns:max-content minmax(0,1fr) !important;width:100% !important;max-width:100% !important;overflow:hidden !important;background:var(--l12024b-panel-bg) !important;border-color:var(--l12024b-border) !important;box-sizing:border-box !important;">
         <p>Selected Species: <strong>{{selectedSpeciesName}}</strong></p>
         <button type="button" style="inline-size:auto !important;width:auto !important;min-width:0 !important;max-width:100% !important;margin:0 !important;justify-self:stretch !important;box-sizing:border-box !important;" data-action="browserPick" data-kind="species"><i class="fas fa-books"></i> Browse All Sources</button>
-      </div>
-      <label class="l12024b-search-row" style="display:grid !important;grid-template-columns:max-content minmax(0,1fr) !important;width:100% !important;max-width:100% !important;background:var(--l12024b-panel-bg) !important;color:var(--l12024b-text) !important;border-color:var(--l12024b-border) !important;box-sizing:border-box !important;">
-        <span>Search Species</span>
-        <input type="search" data-search="species" value="{{searchTerms.species}}" placeholder="Type a species name or source...">
-      </label>
-      <div class="l12024b-art-grid" style="max-height:420px !important;">
-        {{#each mainSpeciesOptions}}
-          <article class="l12024b-art-card {{#if selected}}selected{{/if}}">
-            <button type="button" class="l12024b-art-pick" data-action="confirmSelectItem" data-kind="species" data-uuid="{{uuid}}" aria-label="Choose {{name}}">
-              <img src="{{img}}" alt="{{name}}">
-              <span class="l12024b-art-shade"></span>
-              <span class="l12024b-art-copy"><strong>{{name}}</strong><small>{{sourceLabel}}</small></span>
-              {{#if selected}}<span class="l12024b-selected-badge"><i class="fas fa-check"></i> Selected</span>{{/if}}
-            </button>
-            <button type="button" class="l12024b-art-info" data-action="openItem" data-uuid="{{uuid}}"><i class="fas fa-circle-info"></i> Details</button>
-          </article>
-        {{/each}}
       </div>
     </section>
   {{/if}}
@@ -171,27 +154,10 @@
   {{#if (eq currentStep "Background")}}
     <section class="l12024b-panel">
       <h2>Background</h2>
-      <p class="hint">Choose from the background gallery below. The builder will ask for that background's ability score increases next.</p>
+      <p class="hint">Choose a background using the compendium browser below. The builder will ask for that background's ability score increases next.</p>
       <div class="l12024b-selection-heading" style="display:grid !important;grid-template-columns:max-content minmax(0,1fr) !important;width:100% !important;max-width:100% !important;overflow:hidden !important;background:var(--l12024b-panel-bg) !important;border-color:var(--l12024b-border) !important;box-sizing:border-box !important;">
         <p>Selected Background: <strong>{{selectedBackgroundName}}</strong></p>
         <button type="button" style="inline-size:auto !important;width:auto !important;min-width:0 !important;max-width:100% !important;margin:0 !important;justify-self:stretch !important;box-sizing:border-box !important;" data-action="browserPick" data-kind="background"><i class="fas fa-books"></i> Browse All Sources</button>
-      </div>
-      <label class="l12024b-search-row" style="display:grid !important;grid-template-columns:max-content minmax(0,1fr) !important;width:100% !important;background:var(--l12024b-panel-bg) !important;color:var(--l12024b-text) !important;border-color:var(--l12024b-border) !important;box-sizing:border-box !important;">
-        <span>Search Backgrounds</span>
-        <input type="search" data-search="backgrounds" value="{{searchTerms.backgrounds}}" placeholder="Type a background name or source...">
-      </label>
-      <div class="l12024b-art-grid" style="max-height:420px !important;">
-        {{#each mainBackgroundOptions}}
-          <article class="l12024b-art-card {{#if selected}}selected{{/if}}">
-            <button type="button" class="l12024b-art-pick" data-action="confirmSelectItem" data-kind="background" data-uuid="{{uuid}}" aria-label="Choose {{name}}">
-              <img src="{{img}}" alt="{{name}}">
-              <span class="l12024b-art-shade"></span>
-              <span class="l12024b-art-copy"><strong>{{name}}</strong><small>{{sourceLabel}}</small></span>
-              {{#if selected}}<span class="l12024b-selected-badge"><i class="fas fa-check"></i> Selected</span>{{/if}}
-            </button>
-            <button type="button" class="l12024b-art-info" data-action="openItem" data-uuid="{{uuid}}"><i class="fas fa-circle-info"></i> Details</button>
-          </article>
-        {{/each}}
       </div>
       <h3>Base Scores</h3>
       <div class="l12024b-scoreline">
@@ -347,27 +313,10 @@
   {{#if (eq currentStep "Class")}}
     <section class="l12024b-panel">
       <h2>Class</h2>
-      <p class="hint">Choose from the clean class gallery. The builder favors the official 2024 entry when several sources provide the same class.</p>
+      <p class="hint">Choose a class using the compendium browser below. The builder favors the official 2024 entry when several sources provide the same class.</p>
       <div class="l12024b-selection-heading" style="display:grid !important;grid-template-columns:max-content minmax(0,1fr) !important;width:100% !important;max-width:100% !important;overflow:hidden !important;background:var(--l12024b-panel-bg) !important;border-color:var(--l12024b-border) !important;box-sizing:border-box !important;">
         <p>Selected Class: <strong>{{selectedClassName}}</strong></p>
         <button type="button" style="inline-size:auto !important;width:auto !important;min-width:0 !important;max-width:100% !important;margin:0 !important;justify-self:stretch !important;box-sizing:border-box !important;" data-action="browserPick" data-kind="class"><i class="fas fa-books"></i> Browse All Sources</button>
-      </div>
-      <label class="l12024b-search-row" style="display:grid !important;grid-template-columns:max-content minmax(0,1fr) !important;width:100% !important;max-width:100% !important;background:var(--l12024b-panel-bg) !important;color:var(--l12024b-text) !important;border-color:var(--l12024b-border) !important;box-sizing:border-box !important;">
-        <span>Search Classes</span>
-        <input type="search" data-search="classes" value="{{searchTerms.classes}}" placeholder="Type a class name...">
-      </label>
-      <div class="l12024b-art-grid" style="max-height:420px !important;">
-        {{#each mainClassOptions}}
-          <article class="l12024b-art-card {{#if selected}}selected{{/if}}">
-            <button type="button" class="l12024b-art-pick" data-action="confirmSelectItem" data-kind="class" data-uuid="{{uuid}}" aria-label="Choose {{name}}">
-              <img src="{{img}}" alt="{{name}}">
-              <span class="l12024b-art-shade"></span>
-              <span class="l12024b-art-copy"><strong>{{name}}</strong><small>{{sourceLabel}}</small></span>
-              {{#if selected}}<span class="l12024b-selected-badge"><i class="fas fa-check"></i> Selected</span>{{/if}}
-            </button>
-            <button type="button" class="l12024b-art-info" data-action="openItem" data-uuid="{{uuid}}"><i class="fas fa-circle-info"></i> Details</button>
-          </article>
-        {{/each}}
       </div>
     </section>
   {{/if}}
