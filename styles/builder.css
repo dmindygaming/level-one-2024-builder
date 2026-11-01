@@ -510,17 +510,47 @@
   margin: 0;
 }
 
+/* v1.20.5: rebuilt as a list of compact "chip" rows instead of a plain
+   bulleted list. The old version relied on the <li> staying display:flex
+   with three separate flex children (name, source hint, Remove button) -
+   when the row ran out of horizontal space, flex-wrap let the name and the
+   source hint wrap onto *separate* lines from each other (not just from the
+   button), which produced the tall, disjointed "name on one line, source on
+   its own line below, big gap, then a full-width Remove button" layout a
+   live user reported. Name + source are now a single flex child
+   (.l12024b-item-label, added in the template alongside this change) so
+   they wrap together as one unit, and the row gets an actual card
+   background/border so each entry reads as one row instead of a bare bullet
+   point with ambiguous spacing. */
 .l12024b-selected-list {
   margin: 0;
-  padding-left: 1.25rem;
+  padding: 0;
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
 }
 
 .l12024b-selected-list li {
-  margin: 0.15rem 0;
-  display: flex;
-  align-items: center;
+  display: flex !important;
+  flex-direction: row !important;
+  align-items: center !important;
   flex-wrap: wrap;
-  gap: 0.5rem;
+  gap: 0.4rem 0.6rem;
+  margin: 0;
+  padding: 0.3rem 0.6rem;
+  border: 1px solid var(--l12024b-border, rgba(127, 127, 127, 0.35));
+  border-radius: 4px;
+  background: rgba(127, 127, 127, 0.08);
+}
+
+.l12024b-item-label {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0.35rem;
+  min-width: 0;
+  flex: 1 1 auto;
 }
 
 .l12024b-selected-list li button {
@@ -531,7 +561,8 @@
      line instead of sitting compactly next to the item it removes. */
   flex: 0 0 auto !important;
   width: auto !important;
-  margin-left: auto;
+  white-space: nowrap;
+  margin-left: auto !important;
 }
 
 .l12024b-spell-list {
