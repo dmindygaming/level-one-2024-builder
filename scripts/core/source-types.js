@@ -137,6 +137,31 @@ export function parseSelectedPackSetting(raw) {
  * eligible sources for a given category - lookups must never fall back to
  * scanning every installed Item pack, or the GM's Sourcebook Picker settings
  * become meaningless.
+ *
+ * v1.22.2: this used to also fall back to the old, pre-"per content type"
+ * `selectedItemPacks` setting whenever a category's own setting was
+ * "__auto__". That setting is NOT a GM's deliberate choice for the category
+ * being resolved - sourcebook-settings.js#_updateObject overwrites it on
+ * every single save of the Sourcebook Picker with the union of whatever
+ * OTHER categories happen to be manually configured (kept only so an old
+ * macro reading that exact setting name directly still sees something
+ * useful - see that file). Confirmed live, in a real world: a GM who had
+ * only customized "Spells" away from Automatic - leaving Classes,
+ * Backgrounds, Equipment, and everything else on Automatic, their actual
+ * intended setting - ended up with Classes, Backgrounds, and Equipment all
+ * silently restricted to those same 3 spell-only compendiums, because that
+ * fallback treated the spells-only union as if it were also the GM's choice
+ * for every other "__auto__" category. That's how "select equipment, but
+ * none is added" happens: the equipment step's own pack lookup resolves to
+ * compendiums with essentially no weapon/armor/gear items in them at all,
+ * so almost nothing in a starting-equipment package can be found, and
+ * nothing gets added to the character. "__auto__" now always means real
+ * auto-discovery via automaticPackIds(), full stop - matching both what the
+ * Sourcebook Picker UI shows the GM ("Automatic") and what
+ * selectedPacksByContentType's own registered default already is for every
+ * category. The true pre-Sourcebook-Picker legacy setting, the plain
+ * comma-separated `allowedItemPacks` string, is unaffected and still
+ * checked first, below, exactly as before.
  */
 export function packIdsForSourceType(key, sourceSelections = null) {
   const legacyRaw = game.settings.get(MODULE_ID, "allowedItemPacks")?.trim();
@@ -145,13 +170,5 @@ export function packIdsForSourceType(key, sourceSelections = null) {
   const selections = sourceSelections ?? parseSourceTypePackSetting(game.settings.get(MODULE_ID, "selectedPacksByContentType") || "");
   const configured = selections[key];
   if (Array.isArray(configured)) return configured.length ? configured : automaticPackIds();
-  if (configured === "__auto__" || configured == null) {
-    const oldSelectedRaw = game.settings.get(MODULE_ID, "selectedItemPacks") ?? "__auto__";
-    if (oldSelectedRaw && oldSelectedRaw !== "__auto__") {
-      const oldSelected = parseSelectedPackSetting(oldSelectedRaw);
-      if (oldSelected.length) return oldSelected;
-    }
-    return automaticPackIds();
-  }
   return automaticPackIds();
 }
