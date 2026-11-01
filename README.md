@@ -1,6 +1,16 @@
 # Level One 2024 Character Builder
 
-Current version: v1.22.1
+Current version: v1.22.2
+
+## v1.22.2: Starting Equipment could be selected but nothing was actually added to the character
+
+**Reported by a live user**: picking a Starting Equipment package added nothing to the character at all.
+
+Reproduced live, directly in the same world, by driving the real builder app from the console against a disposable test character instead of guessing: with Fighter selected, `cache.classes` had 0 entries and `cache.equipment` had 2 - meaning the equipment (and class, and background) pickers were drawing from almost no real data to begin with, not that something broke while adding whatever was picked.
+
+Found why, in `core/source-types.js`'s `packIdsForSourceType()`: when a content category (Species, Backgrounds, Classes, Equipment, etc.) is left on "Automatic" - true for every category except one at a time in practice - it used to fall back to an old, pre-"per content type" setting (`selectedItemPacks`) before auto-discovering packs itself. That setting isn't a GM's deliberate choice for the category being resolved: `sourcebook-settings.js` overwrites it on every single save of the Sourcebook Picker with the union of whatever *other* categories happen to be manually configured, purely so an old macro reading that exact setting name directly still sees something (see that file's own comment). Confirmed exactly this in the reported world: Spells had been customized to 3 specific spell compendiums, and Classes/Backgrounds/Equipment were left on Automatic as intended - but that fallback treated the spells-only union as if it were *also* the deliberate choice for Classes, Backgrounds, and Equipment, restricting all of them to 3 compendiums that contain essentially no classes, backgrounds, or gear at all. "Automatic" silently meant "whatever the Spells picker happens to be set to" for every other category, any time more than one category's settings were ever saved.
+
+"Automatic" now always means real auto-discovery, full stop - matching both what the Sourcebook Picker UI shows the GM and what `selectedPacksByContentType`'s own registered default already is. The legacy setting is still written on every save (for any old macro that reads it directly) but is no longer read back into this resolution. Confirmed fixed, live, in the same world, end to end: with the corrected logic, Classes went from 0 to 24 real entries, Equipment from 2 to 1,687, Backgrounds from 0 to 159, and selecting a Fighter's Chain Mail/Greatsword/Flail/8×Javelin/Dungeoneer's Pack package and finishing a test character actually put all 9 resulting items (plus background gear and starting gold) on the actor.
 
 ## v1.22.1: v1.22.0's own fix didn't actually run on a real reload - fixed the race condition that caused it
 
