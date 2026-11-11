@@ -1,6 +1,14 @@
-# Level One 2024 Character Builder
+# D&D Character Builder
 
-Current version: v1.22.5
+Current version: v1.22.6
+
+## v1.22.6: Renamed the module to "D&D Character Builder"; documented Foundry v14 / dnd5e 6.0+ support
+
+**Requested by a live user**: rename the module from "Level One 2024 Character Builder" to "D&D Character Builder", and make sure the documentation actually states what Foundry/dnd5e versions it supports.
+
+**Rename.** Every user-facing display string - the wizard window title, the Actor Directory footer button, the actor sheet header button, the actor directory right-click menu entry, every settings-menu window title (Sourcebook Picker, Ability Score Methods, Feature Overrides, Character Actor Folder), notification text, and the `source` field recorded on items the builder creates - now reads "D&D Character Builder" (or a short form like "D&D Builder" where space is tight) instead of "Level One 2024 Character Builder". Everything else was deliberately left exactly as it was: the module id/folder name (`level-one-2024-builder`), the settings/flag namespace (`MODULE_ID`), every CSS class selector (`.level-one-2024-builder`, `.l12024b-*`), every JS class and global (`LevelOne2024Builder`, `LevelOne2024BuilderAPI`, `LevelOne2024SourcebookSettings`, etc.), and the GitHub repo slug. That split matters: this module has been live in people's worlds since v0.1.x, and changing the id/namespace would have silently orphaned every existing GM setting, actor flag, and `LevelOne2024BuilderAPI.*` macro or script people already have saved. Only the name on screen changed - nothing about how the module is installed, referenced from a macro, or stores its data did.
+
+**Compatibility documentation.** The "What it does" compatibility line at the top of this README still said "A Foundry VTT v13 / dnd5e 5.x module", which was true when it was written but never updated after compatibility was later extended and verified further - the module's own `module.json` compatibility block has stated `minimum: "13", verified: "14"` for Foundry and `minimum: "5.3.0", verified: "6.0.6"` for dnd5e for some time now, and that's also what Foundry itself reports: this was re-confirmed live by checking the running world's actual version ("Version 14 Build 369") before writing this entry. The README now states the same range Foundry's own module manager uses to decide compatibility, instead of an old snapshot of it. The install, sourcebook-setup, and launching sections below, and the step-order list under "What it does", were also updated to match the current button/menu names and step order (the last step reorder, Class before Ability Scores Generation, shipped in v1.22.5 but hadn't been reflected here yet).
 
 ## v1.22.5: Class selection now comes before Ability Scores Generation
 
@@ -385,7 +393,7 @@ pick a class or species, and pin the exact compendium item to use for any of
 its level-1 features. Leave a row on "Auto" to keep using the deterministic
 resolver above.
 
-A Foundry VTT v13 / dnd5e 5.x module for 2024-only level 1 character creation.
+A 2024-rules level 1 character creation wizard for Foundry VTT v13 and up (verified through v14) and the dnd5e system v5.3 and up (verified through v6.0.6).
 
 ## What it does
 
@@ -395,14 +403,14 @@ A Foundry VTT v13 / dnd5e 5.x module for 2024-only level 1 character creation.
   - Point Buy
   - 4d6 drop lowest
   - 2d6+6, reroll 1s and 2s
-- Prompts in 2024 order:
+- Prompts in this order:
   - Actor: create new or use an existing owned actor
   - Name
+  - Class
   - Ability Scores Generation
   - Species
   - Background
   - Origin Feats
-  - Class
   - Class skills
   - Level 1 spells, if applicable
   - Languages
@@ -417,7 +425,9 @@ Copy the `level-one-2024-builder` folder into:
 
 `FoundryVTT/Data/modules/`
 
-Then enable **Level One 2024 Character Builder** in your world.
+Then enable **D&D Character Builder** in your world.
+
+(The folder name and module id stayed `level-one-2024-builder` on purpose - only the display name changed, so existing settings, actor flags, and `LevelOne2024BuilderAPI.*` macros from older installs keep working.)
 
 ## Sourcebook setup
 
@@ -427,7 +437,7 @@ To choose sources manually:
 
 1. Open **Configure Settings**.
 2. Go to **Module Settings**.
-3. Open **Level One 2024 Character Builder → Character Creation Sources**.
+3. Under the **D&D Character Builder** module header, open one of the **... Sources** menus (one per content type - Species, Backgrounds, Classes, Spells, etc.).
 4. Check the sourcebook/item compendiums the builder should use.
 5. Save.
 
@@ -435,9 +445,9 @@ You can also open the same menu from inside the builder with the **Sources** but
 
 ## Launching
 
-- Actor Directory footer button: **2024 Character Builder**
-- Character actor sheet header button: **2024 Builder**
-- Character actor directory right-click menu: **2024 Character Builder**
+- Actor Directory footer button: **D&D Character Builder**
+- Character actor sheet header button: **D&D Builder**
+- Character actor directory right-click menu: **D&D Character Builder**
 - Console fallback: `LevelOne2024BuilderAPI.open()`
 - Source picker fallback: `LevelOne2024BuilderAPI.sources()`
 - Debug detected packs: `LevelOne2024BuilderAPI.detectedPacks()`
@@ -453,7 +463,6 @@ If the GM has already created a blank actor for a player, the player can launch 
   afterward through Foundry's native level-up flow (advancement for level 2+
   is no longer stripped).
 - No multiclassing.
-- No equipment package automation yet.
 - Class skill and spell prompt counts (including how many level-1 spells a
   prepared caster is asked to choose) use a lightweight, fixed-per-class
   2024 map rather than computing the real formula (spellcasting ability
@@ -517,7 +526,7 @@ If the GM has already created a blank actor for a player, the player can launch 
 - The Abilities step is now labeled **Ability Scores Generation**.
 - Builder buttons are larger for easier use.
 - GMs can configure ability score generation methods under:
-  `Configure Settings → Module Settings → Level One 2024 Character Builder → Ability Score Generation Methods`.
+  `Configure Settings → Module Settings → D&D Character Builder → Ability Score Generation Methods`.
 - Built-in methods can be hidden/disabled.
 - Custom methods can be added as JSON:
 
