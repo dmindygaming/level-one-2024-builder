@@ -5,7 +5,7 @@ export class LevelOne2024FolderSettings extends FormApplication {
   static get defaultOptions() {
     return foundry.utils.mergeObject(super.defaultOptions, {
       id: "level-one-2024-folder-settings",
-      title: "Level One 2024 Builder: Character Actor Folder",
+      title: "D&D Character Builder: Character Actor Folder",
       template: `modules/${MODULE_ID}/templates/folder-settings.hbs`,
       classes: ["level-one-2024-builder", "level-one-2024-folder-settings"],
       width: 520,

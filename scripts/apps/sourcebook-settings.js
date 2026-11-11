@@ -19,7 +19,7 @@ export class LevelOne2024SourcebookSettings extends FormApplication {
     const config = key ? SOURCE_TYPE_SETTINGS[key] : null;
     return foundry.utils.mergeObject(super.defaultOptions, {
       id: key ? `level-one-2024-sourcebooks-${key}` : "level-one-2024-sourcebooks",
-      title: config ? `Level One 2024 ${config.label} Sources` : "Level One 2024 Builder Sources",
+      title: config ? `D&D Character Builder: ${config.label} Sources` : "D&D Character Builder: Sources",
       template: `modules/${MODULE_ID}/templates/sourcebooks.hbs`,
       width: 760,
       height: "auto",
@@ -156,7 +156,7 @@ export class LevelOne2024SourcebookSettings extends FormApplication {
       }
     }
     await game.settings.set(MODULE_ID, "selectedItemPacks", allAuto ? "__auto__" : JSON.stringify([...union]));
-    ui.notifications.info("Level One 2024 Builder source compendiums saved by content type.");
+    ui.notifications.info("D&D Character Builder source compendiums saved by content type.");
   }
 }
 

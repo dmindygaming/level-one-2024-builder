@@ -1,5 +1,7 @@
 // ============================================================
-// The Level One 2024 Character Builder wizard application, plus the small
+// The D&D Character Builder wizard application (internally still named/keyed
+// as "Level One 2024 Builder" / "level-one-2024-builder" - see the note in
+// README.md's Install section for why), plus the small
 // glue functions used to open it from the actor directory / sheet header.
 // ============================================================
 
@@ -132,7 +134,7 @@ export class LevelOne2024Builder extends Application {
   static get defaultOptions() {
     return foundry.utils.mergeObject(super.defaultOptions, {
       id: "level-one-2024-builder",
-      title: "Level One 2024 Character Builder",
+      title: "D&D Character Builder",
       template: `modules/${MODULE_ID}/templates/builder.hbs`,
       width: 820,
       height: "auto",
@@ -1752,7 +1754,7 @@ export class LevelOne2024Builder extends Application {
       system: {
         description: { value: `<p>${foundry.utils.escapeHTML(description)}</p>` },
         type: { value: "race", subtype: "" },
-        source: { custom: "Level One 2024 Character Builder" }
+        source: { custom: "D&D Character Builder" }
       }
     };
   }
@@ -1813,7 +1815,7 @@ export class LevelOne2024Builder extends Application {
         description: { value: `<p>${foundry.utils.escapeHTML(description)}</p>` },
         type: { value: "class", subtype: "cleric" },
         requirements: this._classFeatureRequirements("cleric"),
-        source: { custom: "Level One 2024 Character Builder" }
+        source: { custom: "D&D Character Builder" }
       }
     };
   }
@@ -1889,7 +1891,7 @@ export class LevelOne2024Builder extends Application {
         description: { value: `<p>${foundry.utils.escapeHTML(description)}</p>` },
         type: { value: "class", subtype: "druid" },
         requirements: this._classFeatureRequirements("druid"),
-        source: { custom: "Level One 2024 Character Builder" }
+        source: { custom: "D&D Character Builder" }
       }
     };
   }
@@ -1974,7 +1976,7 @@ export class LevelOne2024Builder extends Application {
         description: { value: `<p>${foundry.utils.escapeHTML(choice.description)}</p>` },
         type: { value: "class", subtype: "fighter" },
         requirements: this._classFeatureRequirements("fighter"),
-        source: { custom: "Level One 2024 Character Builder" }
+        source: { custom: "D&D Character Builder" }
       },
       effects: choice.changes ? [{
         name: `Fighting Style: ${choice.label}`,
@@ -2391,7 +2393,7 @@ export class LevelOne2024Builder extends Application {
         system: {
           description: { value: `<p>You have mastery with ${foundry.utils.escapeHTML(detail.name)}. Mastery property: <strong>${foundry.utils.escapeHTML(detail.masteryLabel || detail.mastery || "Mastery")}</strong>.</p>` },
           type: { value: "class", subtype: this._selectedClassKey() || "class" },
-          source: { custom: "Level One 2024 Character Builder" }
+          source: { custom: "D&D Character Builder" }
         }
       });
     }
@@ -3661,9 +3663,9 @@ export class LevelOne2024Builder extends Application {
         return ui.notifications.error("This world is not configured to let players create actors from the builder.");
       }
       try {
-        suppressExternalBuilderPrompts(120000, "Finishing Level One 2024 Builder character", this.build.selectedActorId ?? this.targetActor?.id ?? null);
+        suppressExternalBuilderPrompts(120000, "Finishing D&D Character Builder character", this.build.selectedActorId ?? this.targetActor?.id ?? null);
         const actor = await this._createOrUpdateActor();
-        suppressExternalBuilderPrompts(120000, "Cleanup after Level One 2024 Builder finish", actor.id);
+        suppressExternalBuilderPrompts(120000, "Cleanup after D&D Character Builder finish", actor.id);
         ui.notifications.info(`Finished level 1 character setup: ${actor.name}`);
         await this.close();
         // Open the finished character sheet only after the builder is closed so
@@ -4765,7 +4767,7 @@ export class LevelOne2024Builder extends Application {
       system: {
         description: { value: `<p>${foundry.utils.escapeHTML(description)}</p>` },
         type: { value: "race", subtype: "" },
-        source: { custom: "Level One 2024 Character Builder" }
+        source: { custom: "D&D Character Builder" }
       }
     }]);
   }
@@ -5022,7 +5024,7 @@ export function openLevelOne2024Builder(actor = null) {
     return app.render(true);
   } catch (err) {
     console.error(`${MODULE_ID} | Could not open builder`, err);
-    ui.notifications?.error?.(`Could not open the 2024 Character Builder: ${err.message}`);
+    ui.notifications?.error?.(`Could not open the D&D Character Builder: ${err.message}`);
     return null;
   }
 }
@@ -5037,7 +5039,7 @@ function addBuilderButtonToActorDirectory(app, html) {
   const button = document.createElement("button");
   button.type = "button";
   button.classList.add("level-one-2024-builder-launch");
-  button.innerHTML = `<i class="fas fa-user-plus"></i> 2024 Character Builder`;
+  button.innerHTML = `<i class="fas fa-user-plus"></i> D&amp;D Character Builder`;
   button.addEventListener("click", event => {
     event.preventDefault();
     openLevelOne2024Builder();

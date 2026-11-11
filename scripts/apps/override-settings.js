@@ -21,7 +21,7 @@ export class LevelOne2024OverrideSettings extends FormApplication {
   static get defaultOptions() {
     return foundry.utils.mergeObject(super.defaultOptions, {
       id: "level-one-2024-overrides",
-      title: "Level One 2024 Builder: Feature Overrides",
+      title: "D&D Character Builder: Feature Overrides",
       template: `modules/${MODULE_ID}/templates/overrides.hbs`,
       width: 640,
       height: "auto",
