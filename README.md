@@ -1,6 +1,14 @@
 # D&D Character Builder
 
-Current version: v1.22.7
+Current version: v1.22.8
+
+## v1.22.8: The v1.22.7 Unarmored Defense fix was a no-op - fixed for real this time
+
+**Reported by the same live user**, after updating to v1.22.7: the Barbarian AC bug from v1.22.7 below was still happening, unchanged.
+
+v1.22.7's fix looked for the broken `system.attributes.ac.calcs` effect at `effect.changes` on the raw item data about to be created. That's where a *live* ActiveEffect Document exposes it (dnd5e keeps a `.changes` getter there for convenience), but the actual data - what `item.toObject()` returns, and what a compendium entry is actually shaped like on disk - stores it one level deeper, at `effect.system.changes`. Confirmed live: `Array.isArray(effect.changes)` was `false` on the real data this builder was about to create the item from, so the fix's loop body never ran and the bad `unarmoredMonk` value passed through completely untouched - the warning never even logged. v1.22.7 shipped having only been checked by reasoning through the code, not by running it against real data; this time it was re-run against the exact same compendium entry step by step before shipping, confirming the corrected value actually comes out right.
+
+`_fixLevelOneClassFeatureData()` now checks `effect.system.changes` first, falling back to `effect.changes` for any content shaped the older way. Everything else about the fix (which classes/formulas it checks, when it applies) is unchanged from v1.22.7's entry below.
 
 ## v1.22.7: A Barbarian's Unarmored Defense could come out using Monk's formula (Dex+Wis instead of Dex+Con)
 
