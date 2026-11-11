@@ -2161,8 +2161,16 @@ export class LevelOne2024Builder extends Application {
     const correctAcCalc = slug === "unarmored-defense" ? UNARMORED_DEFENSE_AC_CALC[classKey] : null;
     if (correctAcCalc && Array.isArray(data.effects)) {
       for (const effect of data.effects) {
-        if (!Array.isArray(effect.changes)) continue;
-        for (const change of effect.changes) {
+        // dnd5e's ActiveEffect moved its `changes` array into a DataModel
+        // under `system.changes` - live Documents still expose a `.changes`
+        // getter that redirects there for convenience, but raw serialized
+        // data (what toObject() returns, and what compendium entries are
+        // actually shaped like) only has it under `system.changes`. Checking
+        // both means this keeps working if a pack is shaped the older way.
+        const changeList = Array.isArray(effect.system?.changes) ? effect.system.changes
+          : (Array.isArray(effect.changes) ? effect.changes : null);
+        if (!changeList) continue;
+        for (const change of changeList) {
           if (change.key === "system.attributes.ac.calcs" && change.value !== correctAcCalc) {
             console.warn(`${MODULE_ID} | "${data.name}" (${classKey}) shipped with AC formula "${change.value}" - corrected to "${correctAcCalc}".`);
             change.value = correctAcCalc;
