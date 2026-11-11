@@ -1,6 +1,14 @@
 # D&D Character Builder
 
-Current version: v1.22.6
+Current version: v1.22.7
+
+## v1.22.7: A Barbarian's Unarmored Defense could come out using Monk's formula (Dex+Wis instead of Dex+Con)
+
+**Reported by a live user**, with a screenshot: a freshly built Barbarian showed "Unarmored Defense (Monk)" on their AC breakdown, computed as 10 + Dex + Wis, instead of the Barbarian's own 10 + Dex + Con.
+
+This builder already has dedicated logic (`_findFeatureItemsByNames()` in `compendium-resolver.js`, added after an earlier version of this same class of bug) to make sure a same-named feature like "Unarmored Defense" is matched to the right class's own compendium entry - by identifier, requirements, and subtype, not just the name. Confirmed live that it worked exactly as designed here: the imported item was correctly matched to the Barbarian's own entry (identifier `unarmored-defense-barbarian`, requirements "Barbarian 1", and 2014 Barbarian description text, not Monk's). The bug was one level deeper: that specific compendium entry's own built-in Active Effect - the one that actually tells dnd5e's AC calculator which formula to use (`system.attributes.ac.calcs`, one of dnd5e's own `unarmoredBarb`/`unarmoredMonk`/`unarmoredBard` ids) - was itself set to `unarmoredMonk` inside the compendium data, a data error in that entry, unrelated to which item got matched. Checked the other three "Unarmored Defense" entries in the same world compendium for the same mistake; only this one Barbarian-flavored entry had it.
+
+Since `_findFeatureItemsByNames()` already knows for certain which class a feature is being imported for by the time the item is created, `_fixLevelOneClassFeatureData()` now also double-checks any `ac.calcs` effect on a feature named "Unarmored Defense" against the formula that actually matches its class (Barbarian → `unarmoredBarb`, Monk → `unarmoredMonk`, Bard → `unarmoredBard`) and corrects it if the compendium data disagrees, logging a console warning when it does. This protects against the same kind of mismatched data regardless of which compendium or sourcebook content a given world has installed, the same way this builder already patches a handful of other known-wrong level-1 feature data (Rage/Second Wind/Favored Enemy/Lay on Hands/Bardic Inspiration uses formulas - see the v1.10.4/v1.10.5 entries below). The one existing character already affected in the reporting user's world was repaired directly (its Unarmored Defense effect corrected from `unarmoredMonk` to `unarmoredBarb`, AC recalculated from 15 to the correct 17); every other character in that world was checked and none of them had the same issue.
 
 ## v1.22.6: Renamed the module to "D&D Character Builder"; documented Foundry v14 / dnd5e 6.0+ support
 
