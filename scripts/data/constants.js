@@ -1,5 +1,5 @@
 // ============================================================
-// Static data tables for the Level One 2024 Character Builder.
+// Static data tables for the D&D Character Builder (internal id: level-one-2024-builder).
 // No game.* calls here - pure data only, safe to import anywhere.
 // ============================================================
 
