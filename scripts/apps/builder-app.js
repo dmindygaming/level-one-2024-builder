@@ -2138,6 +2138,39 @@ export class LevelOne2024Builder extends Application {
       delete data.system.uses.value;
     }
 
+    // "Unarmored Defense" is granted by three different 2024 classes
+    // (Barbarian: Dex+Con, Monk: Dex+Wis, and some Bard variants: Dex+Cha),
+    // and the active effect that actually drives the AC calculation
+    // (system.attributes.ac.calcs, one of dnd5e's own "unarmoredBarb" /
+    // "unarmoredMonk" / "unarmoredBard" ids) lives on the compendium item
+    // itself, not something this builder writes. _findFeatureItemsByNames()
+    // already disambiguates which class's copy of the feature to import (by
+    // identifier/requirements/subtype, not just the shared name "Unarmored
+    // Defense"), so by the time this runs classKey is correct - but a
+    // feature item can still carry the wrong effect internally. Confirmed
+    // live (reported by a user): a world's DDB-imported "Unarmored Defense"
+    // item was correctly matched to Barbarian by every other signal
+    // (identifier "unarmored-defense-barbarian", requirements "Barbarian 1",
+    // 2014 Barbarian description text) but its own baked-in effect still
+    // said "unarmoredMonk" - a data error in that compendium entry, not in
+    // this builder's matching logic. Since the resolver already knows which
+    // class this feature is for, force any ac.calcs change on it to the
+    // formula that actually matches classKey, regardless of what the
+    // compendium item shipped with.
+    const UNARMORED_DEFENSE_AC_CALC = { barbarian: "unarmoredBarb", monk: "unarmoredMonk", bard: "unarmoredBard" };
+    const correctAcCalc = slug === "unarmored-defense" ? UNARMORED_DEFENSE_AC_CALC[classKey] : null;
+    if (correctAcCalc && Array.isArray(data.effects)) {
+      for (const effect of data.effects) {
+        if (!Array.isArray(effect.changes)) continue;
+        for (const change of effect.changes) {
+          if (change.key === "system.attributes.ac.calcs" && change.value !== correctAcCalc) {
+            console.warn(`${MODULE_ID} | "${data.name}" (${classKey}) shipped with AC formula "${change.value}" - corrected to "${correctAcCalc}".`);
+            change.value = correctAcCalc;
+          }
+        }
+      }
+    }
+
     return data;
   }
 
