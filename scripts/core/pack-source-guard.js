@@ -88,7 +88,7 @@ export async function blockAutomationPacksFromCompendiumBrowser() {
     await game.settings.set(DND5E_SETTING_NAMESPACE, DND5E_SETTING_KEY, merged);
 
     console.log(`${MODULE_ID} | Hid ${newlyBlocked.length} automation/effects-only pack(s) from the dnd5e Compendium Browser: ${newlyBlocked.join(", ")}`);
-    ui.notifications?.info(`Level One 2024 Builder: hid ${newlyBlocked.length} automation/effects-only compendium pack${newlyBlocked.length === 1 ? "" : "s"} (not real spell sources) from the dnd5e Compendium Browser.`);
+    ui.notifications?.info(`D&D Character Builder: hid ${newlyBlocked.length} automation/effects-only compendium pack${newlyBlocked.length === 1 ? "" : "s"} (not real spell sources) from the dnd5e Compendium Browser.`);
     hasLoggedThisSession = true;
   } catch (err) {
     console.warn(`${MODULE_ID} | Could not check/update dnd5e's Compendium Browser pack source configuration`, err);

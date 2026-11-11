@@ -115,7 +115,7 @@ export async function scanConfiguredPacks(sourceType, { itemTypes = null, indexF
       const fallback = await scanPackIds(autoIds, opts);
       autoIds.forEach(id => checked.add(id));
       if (fallback.length) {
-        console.warn(`level-one-2024-builder | No matches found in the "${sourceType}" packs configured in Settings > Level One 2024 Builder. Falling back to automatically-detected dnd5e packs this time - open the "${sourceType}" Sourcebook Picker to fix this permanently.`);
+        console.warn(`level-one-2024-builder | No matches found in the "${sourceType}" packs configured in Settings > D&D Character Builder. Falling back to automatically-detected dnd5e packs this time - open the "${sourceType}" Sourcebook Picker to fix this permanently.`);
         results = fallback;
       }
     }
