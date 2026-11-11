@@ -17,7 +17,7 @@ Hooks.once("init", () => {
 
 Hooks.once("ready", async () => {
   if (game.system.id !== "dnd5e") {
-    ui.notifications.warn("Level One 2024 Character Builder is intended for the dnd5e system.");
+    ui.notifications.warn("D&D Character Builder is intended for the dnd5e system.");
   }
 
   // Reconciles dnd5e's own registered class spell lists against whatever
@@ -46,7 +46,7 @@ Hooks.once("ready", async () => {
       });
 
       if (!builder) {
-        ui.notifications.warn("A reroll was approved, but no open Level One 2024 Builder was found.");
+        ui.notifications.warn("A reroll was approved, but no open D&D Character Builder was found.");
         return;
       }
 
@@ -81,7 +81,7 @@ Hooks.on("renderChatMessage", (message, html) => {
 
 Hooks.on("getActorDirectoryEntryContext", (html, options) => {
   options.push({
-    name: "2024 Character Builder",
+    name: "D&D Character Builder",
     icon: '<i class="fas fa-user-plus"></i>',
     condition: li => {
       const actor = game.actors.get(li.data("documentId"));
@@ -97,7 +97,7 @@ Hooks.on("getActorDirectoryEntryContext", (html, options) => {
 Hooks.on("getActorSheetHeaderButtons", (sheet, buttons) => {
   if (sheet.actor?.type !== "character" || !sheet.actor.isOwner) return;
   buttons.unshift({
-    label: "2024 Builder",
+    label: "D&D Builder",
     class: "level-one-2024-builder",
     icon: "fas fa-user-plus",
     onclick: () => openLevelOne2024Builder(sheet.actor)
