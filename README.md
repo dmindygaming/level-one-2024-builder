@@ -1,6 +1,16 @@
 # D&D Character Builder
 
-Current version: v1.22.9
+Current version: v1.23.0
+
+## v1.23.0: v1.22.9 only fixed half of the Second Wind/Favored Enemy warning - the Fighter/Ranger class item itself was still the 2014 one
+
+**Reported by the same live user**, right after rebuilding fresh Fighter and Ranger test characters on v1.22.9 to confirm the previous fix: the same "Maximum Uses formula...has references to missing data" warning was still there on both sheets.
+
+v1.22.9's fix (below) was real but incomplete. It made sure the *feature* item itself - "Second Wind", "Favored Enemy" - imports as its 2024-rules copy, and confirmed live that it does. But the Max Uses formula on that feature item (`@scale.fighter.second-wind`, `@scale.ranger.favored-enemy`) doesn't read from the feature item at all - it reads a scale value that has to come from the actor's *class* item. Checked live: `actor.getRollData().scale.fighter` only had `indomitable` and `action-surge`, even on a freshly-rebuilt v1.22.9 character - no `second-wind` key at all, on either the before or after character. The missing piece was one level up the chain from where v1.22.9 looked.
+
+The actual cause: this builder normalizes every selected class to a single canonical pack, `dnd5e.classes`, before creating the class item on the actor (`_normalizeClassSelection()`/`_coreClassUuidForName()` in `builder-app.js`) - for a good reason (other modules validate class items against that pack, and DDB/custom class copies can fail those checks), unrelated to the Second Wind bug. The problem: `dnd5e.classes` is the *2014 SRD* class pack ("Classes (SRD)") - the actual dnd5e system also ships a separate, official `dnd5e.classes24` pack ("Character Classes") with the real 2024 content, and confirmed live that only *that* pack's Fighter and Ranger class items define the `Second Wind`/`Favored Enemy` ScaleValue advancements the feature items' formulas need - `dnd5e.classes`' Fighter only has Indomitable and Action Surge, `dnd5e.classes`' Ranger only has Spells Known. Every class gets silently downgraded to the 2014-rules class item by this normalization step, regardless of which ruleset's feature items it ends up with - v1.22.9 fixed the feature item, but the class item underneath it was always going to be the 2014 one.
+
+`DND5E_CORE_CLASS_PACK_ID` (a single pack id) is now `DND5E_CORE_CLASS_PACK_IDS` (an ordered list, `["dnd5e.classes24", "dnd5e.classes"]`) in `constants.js`, and `_coreClassUuidForName()`/`_normalizeClassSelection()`/`_mainClassOptions()` in `builder-app.js` all try the 2024 pack first, falling back to the legacy pack only for a class `dnd5e.classes24` doesn't have (none of the 12 core 2024 classes, confirmed live - every one of them resolves to `dnd5e.classes24` now) or for an older dnd5e install that doesn't ship the split pack yet. Verified live: rebuilt the Fighter and Ranger test characters again, `actor.getRollData().scale.fighter` now includes `second-wind`, Second Wind's and Favored Enemy's Max Uses both resolve to a real number, and the warning icon is gone from both sheets. Also re-checked all 12 core classes resolve successfully through the new pack order with no `NOT FOUND` failures, so this isn't a Fighter/Ranger-only fix that happened to miss breaking the other ten.
 
 ## v1.22.9: Second Wind and Favored Enemy could import as their 2014-rules versions, breaking their Max Uses formula
 
