@@ -6,7 +6,7 @@
 // ============================================================
 
 import {
-  MODULE_ID, DND5E_CORE_CLASS_PACK_ID, ABILITIES, ABILITY_LABELS, STANDARD_ARRAY,
+  MODULE_ID, DND5E_CORE_CLASS_PACK_IDS, ABILITIES, ABILITY_LABELS, STANDARD_ARRAY,
   POINT_BUY_COSTS, ACTIVE_BUILDERS, TIEFLING_LEGACIES_2024, DRAGONBORN_ANCESTRIES_2024,
   SPECIES_CHOICE_GROUPS_2024, BASE_WEAPON_MASTERIES_2024, CLASS_PROMPTS_2024,
   CLASS_BASE_PROFICIENCIES_2024, CLASS_HIT_DIE_2024, CLASS_LEVEL1_FEATURES_2024,
@@ -507,13 +507,17 @@ export class LevelOne2024Builder extends Application {
   async _mainClassOptions() {
     const candidates = [...(this.cache.classes ?? [])];
 
-    // The normal option cache deliberately omits dnd5e.classes because class
-    // selection is normalized to that canonical pack later. The visual gallery
-    // still needs those documents, so load the small official class index here.
-    // This also guarantees a clean gallery when the GM's configured source
-    // packs contain only third-party class features rather than class items.
-    const corePack = game.packs.get(DND5E_CORE_CLASS_PACK_ID);
-    if (corePack) {
+    // The normal option cache deliberately omits the core class packs because
+    // class selection is normalized to one of them later. The visual gallery
+    // still needs those documents, so load the small official class index(es)
+    // here. This also guarantees a clean gallery when the GM's configured
+    // source packs contain only third-party class features rather than class
+    // items. Both core packs are loaded (not just the preferred 2024 one) so
+    // a class that only exists in the legacy pack still shows up; the score()
+    // dedup below already prefers the 2024-labeled copy when both exist.
+    for (const corePackId of DND5E_CORE_CLASS_PACK_IDS) {
+      const corePack = game.packs.get(corePackId);
+      if (!corePack) continue;
       const index = await corePack.getIndex({ fields: ["type", "img", "system.identifier", "system.source"] });
       for (const entry of index) {
         if (entry.type !== "class") continue;
@@ -562,36 +566,52 @@ export class LevelOne2024Builder extends Application {
   }
 
   async _coreClassUuidForName(name) {
-    const pack = game.packs.get(DND5E_CORE_CLASS_PACK_ID);
-    if (!pack || !name) return null;
-
+    if (!name) return null;
     const wantedSlug = this._slug(name).replace(/-?2024$/, "");
-    const index = await pack.getIndex({ fields: ["type", "system.identifier", "system.slug"] });
-    const classEntries = [...index].filter(entry => entry.type === "class");
 
-    let match = classEntries.find(entry => this._slug(entry.name).replace(/-?2024$/, "") === wantedSlug);
-    if (!match) {
-      match = classEntries.find(entry => {
-        const id = this._slug(entry.system?.identifier ?? entry.system?.slug ?? "").replace(/-?2024$/, "");
-        return id === wantedSlug;
-      });
+    // Try the 2024 class pack first, then fall back to the legacy one - see
+    // the DND5E_CORE_CLASS_PACK_IDS comment in constants.js. Each pack is
+    // checked through all three match tiers (exact name, identifier/slug,
+    // substring) before moving on, so a class that genuinely only exists in
+    // the legacy pack is still found there.
+    for (const packId of DND5E_CORE_CLASS_PACK_IDS) {
+      const pack = game.packs.get(packId);
+      if (!pack) continue;
+
+      const index = await pack.getIndex({ fields: ["type", "system.identifier", "system.slug"] });
+      const classEntries = [...index].filter(entry => entry.type === "class");
+
+      let match = classEntries.find(entry => this._slug(entry.name).replace(/-?2024$/, "") === wantedSlug);
+      if (!match) {
+        match = classEntries.find(entry => {
+          const id = this._slug(entry.system?.identifier ?? entry.system?.slug ?? "").replace(/-?2024$/, "");
+          return id === wantedSlug;
+        });
+      }
+      if (!match) {
+        match = classEntries.find(entry => this._slug(entry.name).includes(wantedSlug) || wantedSlug.includes(this._slug(entry.name)));
+      }
+      if (match) return `Compendium.${pack.collection}.${match._id}`;
     }
-    if (!match) {
-      match = classEntries.find(entry => this._slug(entry.name).includes(wantedSlug) || wantedSlug.includes(this._slug(entry.name)));
-    }
-    return match ? `Compendium.${pack.collection}.${match._id}` : null;
+    return null;
   }
 
   async _normalizeClassSelection(uuid, selected = null) {
     const doc = selected ?? await this._safeFromUuid(uuid);
     if (!doc || doc.type !== "class") return { uuid, doc, replaced: false, original: doc };
 
-    // Class actor items must come from the dnd5e system class compendium when
-    // possible. Other modules validate class items against that canonical pack,
-    // and custom/DDB class copies can fail those checks. Do this lazily only
-    // after a class is selected/confirmed so the builder does not have to index
-    // dnd5e.classes every time the window opens.
-    if (doc.pack === DND5E_CORE_CLASS_PACK_ID) return { uuid, doc, replaced: false, original: doc };
+    // Class actor items must come from one of the dnd5e system class
+    // compendiums when possible. Other modules validate class items against
+    // those canonical packs, and custom/DDB class copies can fail those
+    // checks. Do this lazily only after a class is selected/confirmed so the
+    // builder does not have to index these packs every time the window
+    // opens. Only short-circuit on the single most-preferred pack
+    // (DND5E_CORE_CLASS_PACK_IDS[0], the 2024 pack) - a doc already sitting in
+    // the legacy pack still goes through _coreClassUuidForName below so it
+    // gets upgraded to the 2024 copy when one exists, instead of silently
+    // keeping a class item whose ScaleValue advancements (Second Wind,
+    // Favored Enemy, etc.) belong to the wrong ruleset.
+    if (doc.pack === DND5E_CORE_CLASS_PACK_IDS[0]) return { uuid, doc, replaced: false, original: doc };
 
     const coreUuid = await this._coreClassUuidForName(doc.name);
     if (!coreUuid) return { uuid, doc, replaced: false, original: doc };
