@@ -80,9 +80,43 @@ export function contextMatchScore(item, { key = null, otherKeys = [] } = {}) {
   return score;
 }
 
+/**
+ * This is a 2024-rules character builder. When a compendium carries both a
+ * 2014-rules and a 2024-rules copy of the same-named feature, always prefer
+ * the 2024 copy - confirmed live for Second Wind and Favored Enemy, whose
+ * 2014 copies use a Max Uses formula (`@scale.<class>.<feature>`) that only
+ * resolves against the 2014 class item's own scale values, not the 2024
+ * one's, leaving the imported feature's uses permanently broken.
+ *
+ * This is folded directly into contextMatchScore's point total (see below)
+ * rather than applied as a separate comparison tier, and the three point
+ * values here are deliberately chosen to sit *between* two of that
+ * function's existing tiers:
+ *   - Bigger than its "+6000" weak/generic text match (a `requirements`
+ *     string like "Fighter 1" or "Ranger 1" that just repeats the class the
+ *     feature already only belongs to isn't real disambiguation - it's
+ *     1950-era metadata that happens to still be filled in on the legacy
+ *     2014 entry while the 2024 entry's own requirements field was left
+ *     blank by whoever authored this world's compendium).
+ *   - Smaller than its "+8000"/"+10000" identifier/subtype tiers (a
+ *     deliberately-authored per-class identifier like
+ *     `unarmored-defense-barbarian`, or a matching `type.subtype`, is real
+ *     evidence this exact item - not some other class's same-named feature -
+ *     is the right one, and must keep winning regardless of ruleset).
+ * Items with no "rules" tag at all (most homebrew/3rd-party content) sit
+ * at the midpoint so they're neither favored nor penalized by this check.
+ */
+export function rulesPriority(item) {
+  const rules = item?.system?.source?.rules;
+  if (rules === "2024") return 7000;
+  if (rules === "2014") return 0;
+  return 3500;
+}
+
 function compareCandidates(a, b, ctx) {
-  const matchDiff = contextMatchScore(a, ctx) - contextMatchScore(b, ctx);
-  if (matchDiff !== 0) return matchDiff;
+  const scoreA = contextMatchScore(a, ctx) + rulesPriority(a);
+  const scoreB = contextMatchScore(b, ctx) + rulesPriority(b);
+  if (scoreA !== scoreB) return scoreA - scoreB;
   const priorityDiff = officialSourcePriority(a) - officialSourcePriority(b);
   if (priorityDiff !== 0) return priorityDiff;
   // Deterministic final tiebreak, independent of pack scan/load order.
