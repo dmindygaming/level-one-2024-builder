@@ -4,7 +4,24 @@
 // ============================================================
 
 export const MODULE_ID = "level-one-2024-builder";
-export const DND5E_CORE_CLASS_PACK_ID = "dnd5e.classes";
+// v1.22.10: dnd5e ships two official class packs - "dnd5e.classes" ("Classes
+// (SRD)", 2014-rules content) and "dnd5e.classes24" ("Character Classes",
+// 2024 Player's Handbook content). Class normalization used to always target
+// "dnd5e.classes" alone, which seemed harmless (both packs have a same-named
+// "Fighter"/"Ranger"/etc. class item) but actually matters a lot: only the
+// 2024 pack's class items carry the ScaleValue advancements some level-1
+// features' Max Uses formulas depend on (e.g. Fighter's Second Wind reads
+// `@scale.fighter.second-wind`, which only "dnd5e.classes24"'s Fighter item
+// defines - "dnd5e.classes" only has Indomitable/Action Surge). Confirmed
+// live: normalizing to "dnd5e.classes" left that scale value entirely absent
+// from the actor's roll data even after the Second Wind feature item itself
+// was correctly 2024-tagged by the compendium-resolver.js fix below, because
+// the feature item's formula depends on the *class* item, not on which copy
+// of the feature item got imported. This is a 2024-rules builder, so the
+// 2024 class pack is tried first; "dnd5e.classes" is kept as a fallback for
+// any class this version's "dnd5e.classes24" doesn't have, and for older
+// dnd5e installs that don't ship the split 2024 pack at all.
+export const DND5E_CORE_CLASS_PACK_IDS = ["dnd5e.classes24", "dnd5e.classes"];
 
 export const ABILITIES = ["str", "dex", "con", "int", "wis", "cha"];
 export const ABILITY_LABELS = {
